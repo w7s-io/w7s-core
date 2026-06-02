@@ -22,6 +22,7 @@ import {
   socialPreviewNoContentResponse
 } from "./noPreview";
 import { handleTailEvents } from "./logs";
+import { enforceCookiePolicy } from "./security";
 import {
   handleDeployStatus,
   handleTelegramWebhook,
@@ -32,6 +33,11 @@ import {
 export { W7SWorkflow };
 
 export const app = new Hono<{ Bindings: Env }>();
+
+app.use("*", async (c, next) => {
+  await next();
+  c.res = enforceCookiePolicy(c.res, c.env.W7S_BASE_DOMAIN);
+});
 
 const health = (c: Context<{ Bindings: Env }>) =>
   json({
