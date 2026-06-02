@@ -1,5 +1,6 @@
 import type { Env } from "./env";
 import { sanitizeScriptPart } from "./names";
+import { reportBillableUsage } from "./billing";
 
 export type UsageOutcome = "success" | "error";
 
@@ -361,6 +362,16 @@ export const recordUsageEvent = async (env: Env, event: UsageEvent) => {
         eventRecord
       )
     ]);
+    await reportBillableUsage(env, {
+      metric,
+      repository: event.repository,
+      environment: event.environment,
+      orgSlug: event.orgSlug,
+      repoSlug: event.repoSlug,
+      units,
+      source: event.source,
+      occurredAt: at
+    });
   } catch {
     // Usage rollups are best-effort until a strongly consistent store is added.
   }

@@ -553,7 +553,7 @@ export const landingHtml = (target?: DeployShowcaseTarget) => `<!doctype html>
       </main>
       <footer class="legal-footer">
         <div class="legal-footer-inner">
-          <span>© 2026 W7S LLC</span>
+          <span>© 2026 W7S SERVICES LLC</span>
           <nav aria-label="Legal">
             <a href="https://w7s.io/terms">Terms</a>
             <a href="https://w7s.io/privacy">Privacy</a>

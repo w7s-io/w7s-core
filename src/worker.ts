@@ -23,6 +23,7 @@ import {
 } from "./noPreview";
 import { handleTailEvents } from "./logs";
 import {
+  handleDeployStatus,
   handleTelegramWebhook,
   handleTelegramWebhookInfo,
   notifyDeployResponse
@@ -54,6 +55,7 @@ app.post("/api/v1/deploy", async (c) => {
   else await notification;
   return response;
 });
+app.post("/api/v1/deploy/status", handleDeployStatus);
 app.all("/api/v1/rpc/*", handleRpc);
 app.post("/api/v1/ai/run", handleAiRun);
 app.post("/api/v1/queues/*", handleQueueSend);

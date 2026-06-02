@@ -242,6 +242,7 @@ await env.W7S_WORKFLOW.fetch(
 - `CLOUDFLARE_API_TOKEN`: secret with dispatch namespace publish access
 - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare account id
 - `W7S_TELEGRAM_BOT_TOKEN`: optional Telegram bot token for manager notifications
+- `W7S_ADMIN_TELEGRAM_CHAT_ID`: optional admin Telegram chat id override, default `63272048`
 - `W7S_TELEGRAM_CHAT_ID`: optional Telegram chat id that receives manager notifications
 - `W7S_TELEGRAM_WEBHOOK_SECRET`: optional Telegram webhook secret token
 
@@ -257,6 +258,7 @@ Required secrets:
 Optional notification secrets:
 
 - `W7S_TELEGRAM_BOT_TOKEN`
+- `W7S_ADMIN_TELEGRAM_CHAT_ID`
 - `W7S_TELEGRAM_CHAT_ID`
 - `W7S_TELEGRAM_WEBHOOK_SECRET`
 
@@ -279,7 +281,7 @@ Set `W7S_ATTACH_WILDCARD_ROUTE=true` only when this worker should attach the `*.
 
 W7S can send Telegram notifications to the platform manager and to repo subscribers.
 
-Manager notifications use `W7S_TELEGRAM_BOT_TOKEN` plus `W7S_TELEGRAM_CHAT_ID` and cover deploy success/warnings/errors, app suspensions, and usage collection failures.
+Manager notifications use `W7S_TELEGRAM_BOT_TOKEN` and cover deploy success/warnings/errors, app suspensions, and usage collection failures. The platform admin chat defaults to `63272048` and receives manager notifications regardless of the `W7S_TELEGRAM_EVENTS` allowlist. `W7S_TELEGRAM_CHAT_ID` can add another manager chat that follows the allowlist, and `W7S_ADMIN_TELEGRAM_CHAT_ID` can override the default admin chat.
 
 Repo subscribers are linked during an authenticated deploy. The reusable action sends the chat id in `x-w7s-telegram-chat-id`, and W7S stores it under the repo/environment so future repo alerts can be pushed to the same Telegram chat.
 

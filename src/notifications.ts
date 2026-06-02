@@ -1,6 +1,7 @@
 import type { Context } from "hono";
 import type { Env } from "./env";
-import { jsonError, jsonSuccess } from "./http";
+import { parseGitHubRepository, verifyGitHubRepoAccess } from "./deploy/githubAuth";
+import { jsonError, jsonSuccess, parseBearerToken } from "./http";
 import { resolveEnvironment, sanitizeScriptPart } from "./names";
 import type { UsageLimitWarning } from "./usageLimits";
 
@@ -60,11 +61,20 @@ const DEFAULT_REPO_EVENTS: RepoTelegramEvent[] = [
   "payment_request"
 ];
 
+const DEFAULT_ADMIN_TELEGRAM_CHAT_ID = "63272048";
 const VALID_REPO_EVENTS = new Set<RepoTelegramEvent>([
   ...DEFAULT_REPO_EVENTS,
   "usage_warning",
   "usage_collection_error",
   "all"
+]);
+const VALID_DEPLOY_STATUS_STAGES = new Set([
+  "start",
+  "package",
+  "upload",
+  "success",
+  "warning",
+  "error"
 ]);
 
 const TELEGRAM_API_BASE = "https://api.telegram.org";
@@ -84,6 +94,15 @@ const numberValue = (value: unknown) =>
 
 const arrayValue = (value: unknown) =>
   Array.isArray(value) ? value : [];
+
+const normalizeTelegramChatId = (value: string | null) => {
+  if (!value) return null;
+  const chatId = value.trim();
+  if (!chatId) return null;
+  if (/^-?\d{3,32}$/.test(chatId)) return chatId;
+  if (/^@[a-zA-Z0-9_]{5,64}$/.test(chatId)) return chatId;
+  return null;
+};
 
 const telegramText = (value: string) =>
   value.replace(TELEGRAM_MARKDOWN_V2_SPECIALS, "\\$1");
@@ -120,9 +139,29 @@ const eventEnabled = (env: Env, event: TelegramEvent) => {
   return enabled.has("all") || enabled.has(event);
 };
 
+const repoEventsInclude = (events: RepoTelegramEvent[], event: TelegramEvent) => {
+  const enabled = new Set(events);
+  return enabled.has("all") || enabled.has(event);
+};
+
 const repoEventEnabled = (subscription: TelegramSubscription, event: TelegramEvent) => {
-  const events = new Set(subscription.events);
-  return events.has("all") || events.has(event);
+  return repoEventsInclude(subscription.events, event);
+};
+
+const configuredAdminTelegramChatIds = (env: Env) => {
+  const configured = env.W7S_ADMIN_TELEGRAM_CHAT_ID?.trim();
+  const values = configured ? configured.split(",") : [DEFAULT_ADMIN_TELEGRAM_CHAT_ID];
+  const chatIds = values
+    .map((value) => normalizeTelegramChatId(value))
+    .filter((value): value is string => Boolean(value));
+  return chatIds.length > 0 ? chatIds : [DEFAULT_ADMIN_TELEGRAM_CHAT_ID];
+};
+
+const managerTelegramChatIds = (env: Env, event: TelegramEvent) => {
+  const chatIds = new Set(configuredAdminTelegramChatIds(env));
+  const managerChatId = normalizeTelegramChatId(env.W7S_TELEGRAM_CHAT_ID ?? null);
+  if (managerChatId && eventEnabled(env, event)) chatIds.add(managerChatId);
+  return [...chatIds];
 };
 
 const dedupePart = (value: string) =>
@@ -155,10 +194,13 @@ const sendTelegramMessage = async (
 ) => {
   const botToken = env.W7S_TELEGRAM_BOT_TOKEN?.trim();
   if (!botToken || !chatId.trim()) return false;
+  const dedupeOptions = options?.dedupeKey
+    ? { ...options, dedupeKey: `chat:${chatId}:${options.dedupeKey}` }
+    : options;
 
   try {
-    const dedupeKey = await readDedupeKey(env, options);
-    if (options?.dedupeKey && options.dedupeTtlSeconds && !dedupeKey) return true;
+    const dedupeKey = await readDedupeKey(env, dedupeOptions);
+    if (dedupeOptions?.dedupeKey && dedupeOptions.dedupeTtlSeconds && !dedupeKey) return true;
     const send = (parseMode?: NotifyOptions["parseMode"]) =>
       fetch(`${TELEGRAM_API_BASE}/bot${botToken}/sendMessage`, {
         method: "POST",
@@ -180,8 +222,8 @@ const sendTelegramMessage = async (
       console.warn(`W7S Telegram notification failed with HTTP ${response.status}.`);
       return false;
     }
-    if (dedupeKey && options?.dedupeTtlSeconds) {
-      await markDedupeKey(env, dedupeKey, options.dedupeTtlSeconds);
+    if (dedupeKey && dedupeOptions?.dedupeTtlSeconds) {
+      await markDedupeKey(env, dedupeKey, dedupeOptions.dedupeTtlSeconds);
     }
     return true;
   } catch (error) {
@@ -196,9 +238,11 @@ export const notifyTelegramManager = async (
   text: string,
   options?: NotifyOptions
 ) => {
-  const chatId = env.W7S_TELEGRAM_CHAT_ID?.trim();
-  if (!chatId || !eventEnabled(env, event)) return;
-  await sendTelegramMessage(env, chatId, text, options);
+  await Promise.all(
+    managerTelegramChatIds(env, event).map((chatId) =>
+      sendTelegramMessage(env, chatId, text, options)
+    )
+  );
 };
 
 const telegramSubscriptionKey = (params: {
@@ -236,15 +280,6 @@ const parseRepoEvents = (value: string | null) => {
     .filter(Boolean) as RepoTelegramEvent[];
   const filtered = events.filter((event) => VALID_REPO_EVENTS.has(event));
   return filtered.length > 0 ? [...new Set(filtered)] : DEFAULT_REPO_EVENTS;
-};
-
-const normalizeTelegramChatId = (value: string | null) => {
-  if (!value) return null;
-  const chatId = value.trim();
-  if (!chatId) return null;
-  if (/^-?\d{3,32}$/.test(chatId)) return chatId;
-  if (/^@[a-zA-Z0-9_]{5,64}$/.test(chatId)) return chatId;
-  return null;
 };
 
 const subscriptionInputFromRequest = (request: Request): TelegramSubscriptionInput | null => {
@@ -463,6 +498,132 @@ const deployErrorMessage = (
     ].join("\n"),
     parseMode: "MarkdownV2" as const
   };
+};
+
+const deployStatusStageLabel = (stage: string) => {
+  if (stage === "start") return "Deployment started";
+  if (stage === "package") return "Packaging repository";
+  if (stage === "upload") return "Uploading archive";
+  if (stage === "success") return "Deployment completed";
+  if (stage === "warning") return "Deployment completed with warnings";
+  if (stage === "error") return "Deployment failed";
+  return "Deployment update";
+};
+
+const deployStatusEvent = (stage: string): TelegramEvent => {
+  if (stage === "error") return "deploy_error";
+  if (stage === "warning") return "deploy_warning";
+  return "deploy_success";
+};
+
+const deployStatusMessage = (body: JsonRecord, request: Request) => {
+  const deployment = asRecord(body.deployment);
+  const github = asRecord(body.github);
+  const stage = stringValue(body.stage) ?? "status";
+  const httpStatus = numberValue(body.httpStatus);
+  const warningCount = numberValue(body.warningCount);
+  const repository =
+    stringValue(deployment?.repository) ??
+    stringValue(github?.repository) ??
+    deployRepositoryFromRequest(request);
+  const environment =
+    stringValue(deployment?.environment) ??
+    stringValue(body.environment) ??
+    deployEnvironmentFromRequest(request);
+  const branch =
+    stringValue(deployment?.branch) ??
+    stringValue(github?.branch) ??
+    request.headers.get("x-github-branch")?.trim() ??
+    "unknown";
+  const commitSha =
+    stringValue(deployment?.commitSha) ??
+    stringValue(github?.commitSha) ??
+    request.headers.get("x-github-sha")?.trim();
+  const runUrl = stringValue(github?.runUrl);
+  const url = stringValue(body.url);
+  const error = stringValue(body.error);
+  const lines = [
+    telegramHeading(`W7S ${deployStatusStageLabel(stage)}`),
+    telegramField("Repository", repository),
+    telegramField("Environment", environment),
+    telegramField("Branch", branch),
+    telegramField("Commit", shortSha(commitSha) ?? "unknown"),
+    ...(httpStatus ? [telegramField("Status", `HTTP ${httpStatus}`)] : []),
+    ...(url ? [telegramField("URL", url)] : []),
+    ...(warningCount ? [telegramField("Warnings", String(warningCount))] : []),
+    ...(error ? [telegramPlainField("Error", error)] : []),
+    ...(runUrl ? [telegramField("Run", runUrl)] : [])
+  ];
+  return {
+    event: deployStatusEvent(stage),
+    repository,
+    text: lines.join("\n"),
+    parseMode: "MarkdownV2" as const
+  };
+};
+
+const repositoryFromDeployStatus = (body: JsonRecord, request: Request) => {
+  const deployment = asRecord(body.deployment);
+  const github = asRecord(body.github);
+  return stringValue(deployment?.repository) ??
+    stringValue(github?.repository) ??
+    request.headers.get("x-github-repository")?.trim() ??
+    null;
+};
+
+export const handleDeployStatus = async (c: Context<{ Bindings: Env }>) => {
+  const token = parseBearerToken(c.req.raw);
+  if (!token) return jsonError("Missing bearer token.", 401);
+
+  let body: JsonRecord | null = null;
+  try {
+    body = asRecord(await c.req.json());
+  } catch {
+    body = null;
+  }
+  if (!body) return jsonError("Invalid deploy status body.", 400);
+
+  const stage = stringValue(body.stage);
+  if (!stage || !VALID_DEPLOY_STATUS_STAGES.has(stage)) {
+    return jsonError("Invalid deploy status stage.", 400);
+  }
+
+  const repositoryValue = repositoryFromDeployStatus(body, c.req.raw);
+  const repository = parseGitHubRepository(repositoryValue);
+  if (!repository) return jsonError("Repository must be in owner/repo form.", 400);
+
+  const allowed = await verifyGitHubRepoAccess({
+    token,
+    owner: repository.owner,
+    repo: repository.repo
+  });
+  if (!allowed) {
+    return jsonError("Bearer token is not authorized for this GitHub repository.", 401);
+  }
+
+  const message = deployStatusMessage(body, c.req.raw);
+  const telegram = asRecord(body.telegram);
+  const subscriberChatId = normalizeTelegramChatId(stringValue(telegram?.chatId));
+  const subscriberEvents = parseRepoEvents(stringValue(telegram?.events));
+  const chatIds = new Set(managerTelegramChatIds(c.env, message.event));
+  if (subscriberChatId && repoEventsInclude(subscriberEvents, message.event)) {
+    chatIds.add(subscriberChatId);
+  }
+
+  await Promise.all(
+    [...chatIds].map((chatId) =>
+      sendTelegramMessage(c.env, chatId, message.text, {
+        parseMode: message.parseMode
+      })
+    )
+  );
+
+  return jsonSuccess({
+    notified: chatIds.size,
+    event: message.event,
+    repository: message.repository,
+    stage
+  });
 };
 
 export const notifyDeployResponse = async (

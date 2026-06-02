@@ -10,7 +10,8 @@ import { createTestEnv } from "./mocks";
 const telegramEnv = () =>
   createTestEnv({
     W7S_TELEGRAM_BOT_TOKEN: "bot-token",
-    W7S_TELEGRAM_CHAT_ID: "12345"
+    W7S_TELEGRAM_CHAT_ID: "12345",
+    W7S_ADMIN_TELEGRAM_CHAT_ID: "12345"
   });
 
 const deployRequest = () =>
@@ -40,8 +41,21 @@ describe("Telegram notifications", () => {
     vi.restoreAllMocks();
   });
 
-  it("does nothing when Telegram is not fully configured", async () => {
+  it("does nothing when the platform Telegram bot is not configured", async () => {
     const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await notifyTelegramManager(
+      createTestEnv({ W7S_TELEGRAM_CHAT_ID: "12345" }),
+      "deploy_success",
+      "hello"
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("always sends manager notifications to the platform admin chat", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);
 
     await notifyTelegramManager(
@@ -50,7 +64,11 @@ describe("Telegram notifications", () => {
       "hello"
     );
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const body = JSON.parse(String(init.body)) as { chat_id: string; text: string };
+    expect(body.chat_id).toBe("63272048");
+    expect(body.text).toBe("hello");
   });
 
   it("sends deployment warnings to the manager chat", async () => {
@@ -180,15 +198,75 @@ describe("Telegram notifications", () => {
       at: new Date("2026-05-28T12:00:00.000Z")
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    const firstBody = JSON.parse(String((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body)) as { chat_id: string; text: string; parse_mode?: string };
-    const secondBody = JSON.parse(String((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].body)) as { chat_id: string; text: string; parse_mode?: string };
-    expect(firstBody.chat_id).toBe("55555");
-    expect(firstBody.parse_mode).toBe("MarkdownV2");
-    expect(firstBody.text).toContain("*W7S deploy succeeded*");
-    expect(secondBody.chat_id).toBe("55555");
-    expect(secondBody.parse_mode).toBe("MarkdownV2");
-    expect(secondBody.text).toContain("*W7S app suspended*");
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    const bodies = fetchMock.mock.calls.map((call) =>
+      JSON.parse(String((call as unknown as [string, RequestInit])[1].body)) as { chat_id: string; text: string; parse_mode?: string }
+    );
+    expect(bodies.map((body) => body.chat_id)).toEqual([
+      "63272048",
+      "55555",
+      "63272048",
+      "55555"
+    ]);
+    expect(bodies[1]?.parse_mode).toBe("MarkdownV2");
+    expect(bodies[1]?.text).toContain("*W7S deploy succeeded*");
+    expect(bodies[3]?.parse_mode).toBe("MarkdownV2");
+    expect(bodies[3]?.text).toContain("*W7S app suspended*");
+  });
+
+  it("accepts platform bot deployment status updates", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://api.github.com/repos/w7s-io/demo") {
+        return Response.json({ full_name: "w7s-io/demo" });
+      }
+      return Response.json({ ok: true });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const env = createTestEnv({
+      W7S_TELEGRAM_BOT_TOKEN: "bot-token"
+    });
+
+    const response = await app.fetch(
+      new Request("https://w7s.cloud/api/v1/deploy/status", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer github-token",
+          "content-type": "application/json",
+          "x-github-repository": "w7s-io/demo",
+          "x-github-branch": "main",
+          "x-github-sha": "abcdef1234567890"
+        },
+        body: JSON.stringify({
+          stage: "start",
+          environment: "production",
+          telegram: {
+            chatId: "55555",
+            events: "deploy_success,deploy_warning,deploy_error"
+          },
+          github: {
+            repository: "w7s-io/demo",
+            branch: "main",
+            commitSha: "abcdef1234567890",
+            runUrl: "https://github.com/w7s-io/demo/actions/runs/123"
+          }
+        })
+      }),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as { status: string; data?: { notified?: number } };
+    expect(body.status).toBe("success");
+    expect(body.data?.notified).toBe(2);
+
+    const telegramBodies = fetchMock.mock.calls
+      .filter((call) => String((call as unknown as [string, RequestInit])[0]).startsWith("https://api.telegram.org/"))
+      .map((call) => JSON.parse(String((call as unknown as [string, RequestInit])[1].body)) as { chat_id: string; text: string; parse_mode?: string });
+    expect(telegramBodies.map((entry) => entry.chat_id)).toEqual(["63272048", "55555"]);
+    expect(telegramBodies[0]?.parse_mode).toBe("MarkdownV2");
+    expect(telegramBodies[0]?.text).toContain("*W7S Deployment started*");
+    expect(telegramBodies[0]?.text).toContain("*Repository:* `w7s-io/demo`");
   });
 
   it("handles Telegram webhook updates with setup instructions", async () => {

@@ -34,10 +34,21 @@ jobs:
       W7S_STATUS_INCIDENTS_JSON: ${{ vars.W7S_STATUS_INCIDENTS_JSON }}
       W7S_TELEGRAM_EVENTS: ${{ vars.W7S_TELEGRAM_EVENTS }}
       W7S_TELEGRAM_BOT_TOKEN: ${{ secrets.W7S_TELEGRAM_BOT_TOKEN }}
+      W7S_ADMIN_TELEGRAM_CHAT_ID: ${{ secrets.W7S_ADMIN_TELEGRAM_CHAT_ID }}
       W7S_TELEGRAM_CHAT_ID: ${{ secrets.W7S_TELEGRAM_CHAT_ID }}
       W7S_TELEGRAM_WEBHOOK_SECRET: ${{ secrets.W7S_TELEGRAM_WEBHOOK_SECRET }}
 
     steps:
+      - name: Telegram start
+        id: telegram-start
+        uses: w7s-io/w7s-cloud@main
+        with:
+          telegram-notify-only: true
+          telegram-status-stage: start
+          telegram-chat-id: ${{ secrets.W7S_TELEGRAM_CHAT_ID }}
+          telegram-bot-token: ${{ secrets.W7S_TELEGRAM_BOT_TOKEN }}
+          telegram-events: ${{ vars.W7S_TELEGRAM_EVENTS }}
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -66,3 +77,25 @@ jobs:
 
       - name: Reconcile routes
         run: npm run reconcile:cloudflare-routes
+
+      - name: Telegram success
+        if: ${{ success() }}
+        uses: w7s-io/w7s-cloud@main
+        with:
+          telegram-notify-only: true
+          telegram-status-stage: success
+          telegram-chat-id: ${{ secrets.W7S_TELEGRAM_CHAT_ID }}
+          telegram-bot-token: ${{ secrets.W7S_TELEGRAM_BOT_TOKEN }}
+          telegram-events: ${{ vars.W7S_TELEGRAM_EVENTS }}
+          telegram-message-id: ${{ steps.telegram-start.outputs.telegram-message-id }}
+
+      - name: Telegram failure
+        if: ${{ failure() }}
+        uses: w7s-io/w7s-cloud@main
+        with:
+          telegram-notify-only: true
+          telegram-status-stage: error
+          telegram-chat-id: ${{ secrets.W7S_TELEGRAM_CHAT_ID }}
+          telegram-bot-token: ${{ secrets.W7S_TELEGRAM_BOT_TOKEN }}
+          telegram-events: ${{ vars.W7S_TELEGRAM_EVENTS }}
+          telegram-message-id: ${{ steps.telegram-start.outputs.telegram-message-id }}

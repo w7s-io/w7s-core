@@ -51,11 +51,12 @@ Optional manager notification secrets:
 
 ```text
 W7S_TELEGRAM_BOT_TOKEN
+W7S_ADMIN_TELEGRAM_CHAT_ID
 W7S_TELEGRAM_CHAT_ID
 W7S_TELEGRAM_WEBHOOK_SECRET
 ```
 
-`W7S_TELEGRAM_BOT_TOKEN` is the Telegram bot token. `W7S_TELEGRAM_CHAT_ID` must be the private chat, group, or channel id the bot can message. For a private manager chat, the manager must first send a message such as `/start` to the bot. `W7S_TELEGRAM_WEBHOOK_SECRET` is optional but recommended for the webhook route.
+`W7S_TELEGRAM_BOT_TOKEN` is the Telegram bot token. The platform admin chat defaults to `63272048` and receives manager notifications regardless of the event allowlist; set `W7S_ADMIN_TELEGRAM_CHAT_ID` only to override that default. `W7S_TELEGRAM_CHAT_ID` can add another private chat, group, or channel id the bot can message. For a private manager chat, the manager must first send a message such as `/start` to the bot. `W7S_TELEGRAM_WEBHOOK_SECRET` is optional but recommended for the webhook route.
 
 ## Optional GitHub Variables
 
@@ -69,6 +70,7 @@ W7S_WORKFLOW_NAME               default: w7s-workflows
 W7S_ATTACH_WILDCARD_ROUTE       default: false
 W7S_COMPATIBILITY_DATE          default: 2026-05-23
 W7S_TELEGRAM_EVENTS             optional comma-separated notification event allowlist
+W7S_ADMIN_TELEGRAM_CHAT_ID       optional admin chat override, default: 63272048
 ```
 
 Current cutover state uses:
@@ -106,7 +108,7 @@ If Telegram notification secrets are configured, W7S sends manager notifications
 - app suspension after usage limits are exceeded;
 - hourly Cloudflare usage collection failures.
 
-Use `W7S_TELEGRAM_EVENTS` to limit those messages. Supported values are `all`, `deploy_success`, `deploy_warning`, `deploy_error`, `app_suspended`, and `usage_collection_error`.
+Use `W7S_TELEGRAM_EVENTS` to limit extra manager-chat messages. Supported values are `all`, `deploy_success`, `deploy_warning`, `deploy_error`, `app_suspended`, and `usage_collection_error`. The default admin chat still receives manager notifications even when this allowlist excludes an event.
 
 The bot webhook lives at:
 

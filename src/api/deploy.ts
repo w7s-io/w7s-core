@@ -50,6 +50,7 @@ import {
   type DeploymentRecord
 } from "../storage/deployments";
 import { enforceAppNotSuspended } from "../appLimits";
+import { captureBillingReservation, refundBillingReservation, reserveBillingCredits, type BillingReservation } from "../billing";
 
 type HonoContext = Context<{ Bindings: Env }>;
 
@@ -180,6 +181,21 @@ export const handleDeploy = async (c: HonoContext) => {
     request: c.req.raw
   });
   if (suspensionResponse) return suspensionResponse;
+
+  const billingReservation = await reserveBillingCredits(c.env, {
+    githubOwnerLogin: orgSlug,
+    githubOwnerType: "org",
+    operation: "deploy",
+    amountCents: 100,
+    idempotencyKey: `deploy:${environment}:${orgSlug}:${repoSlug}:${commitSha}`,
+    metadata: {
+      repository: repo.fullName,
+      branch,
+      commitSha,
+      environment
+    }
+  });
+  if (billingReservation instanceof Response) return billingReservation;
 
   let archive;
   let appManifest;
@@ -382,6 +398,7 @@ export const handleDeploy = async (c: HonoContext) => {
       blockedCustomDomains = customDomainPlan.blocked;
     }
   } catch (error) {
+    await refundBillingReservation(c.env, billingReservation as BillingReservation | null);
     return jsonError(error instanceof Error ? error.message : String(error), 500);
   }
 
@@ -411,6 +428,7 @@ export const handleDeploy = async (c: HonoContext) => {
     try {
       await attachCustomDomainRoutes(c.env, attachedCustomDomains);
     } catch (error) {
+      await refundBillingReservation(c.env, billingReservation as BillingReservation | null);
       return jsonError(error instanceof Error ? error.message : String(error), 500);
     }
   }
@@ -449,6 +467,8 @@ export const handleDeploy = async (c: HonoContext) => {
       source: "w7s"
     });
   }
+
+  await captureBillingReservation(c.env, billingReservation as BillingReservation | null);
 
   return jsonSuccess({
     deployment: {

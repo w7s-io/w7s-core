@@ -27,7 +27,9 @@
     "W7S_AI_MAX_REQUEST_BYTES": "32768",
     "W7S_STATIC_RETENTION_DAYS": "7",
     "W7S_USAGE_RETENTION_DAYS": "14",
-    "W7S_WORKER_SCRIPT_RETENTION_DAYS": "7"
+    "W7S_WORKER_SCRIPT_RETENTION_DAYS": "7",
+    "W7S_BILLING_ENABLED": "false",
+    "W7S_ACCOUNT_SERVICE_ORIGIN": "https://account.w7s.io"
   },
   "dispatch_namespaces": [
     {
