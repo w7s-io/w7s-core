@@ -220,7 +220,7 @@ describe("Telegram notifications", () => {
       if (url === "https://api.github.com/repos/w7s-io/demo") {
         return Response.json({ full_name: "w7s-io/demo" });
       }
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, result: { message_id: 456 } });
     });
     vi.stubGlobal("fetch", fetchMock);
     const env = createTestEnv({
@@ -256,9 +256,10 @@ describe("Telegram notifications", () => {
     );
 
     expect(response.status).toBe(200);
-    const body = await response.json() as { status: string; data?: { notified?: number } };
+    const body = await response.json() as { status: string; data?: { notified?: number; telegramMessageId?: string } };
     expect(body.status).toBe("success");
     expect(body.data?.notified).toBe(2);
+    expect(body.data?.telegramMessageId).toBe("456");
 
     const telegramBodies = fetchMock.mock.calls
       .filter((call) => String((call as unknown as [string, RequestInit])[0]).startsWith("https://api.telegram.org/"))
@@ -267,6 +268,63 @@ describe("Telegram notifications", () => {
     expect(telegramBodies[0]?.parse_mode).toBe("MarkdownV2");
     expect(telegramBodies[0]?.text).toContain("*W7S Deployment started*");
     expect(telegramBodies[0]?.text).toContain("*Repository:* `w7s-io/demo`");
+  });
+
+  it("edits the subscriber deployment status message when a message id is provided", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "https://api.github.com/repos/w7s-io/demo") {
+        return Response.json({ full_name: "w7s-io/demo" });
+      }
+      return Response.json({ ok: true, result: { message_id: 456 } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const env = createTestEnv({
+      W7S_TELEGRAM_BOT_TOKEN: "bot-token"
+    });
+
+    const response = await app.fetch(
+      new Request("https://w7s.cloud/api/v1/deploy/status", {
+        method: "POST",
+        headers: {
+          authorization: "Bearer github-token",
+          "content-type": "application/json",
+          "x-github-repository": "w7s-io/demo",
+          "x-github-branch": "main",
+          "x-github-sha": "abcdef1234567890"
+        },
+        body: JSON.stringify({
+          stage: "upload",
+          environment: "production",
+          telegram: {
+            chatId: "55555",
+            events: "deploy_success,deploy_warning,deploy_error",
+            messageId: "456"
+          },
+          github: {
+            repository: "w7s-io/demo",
+            branch: "main",
+            commitSha: "abcdef1234567890",
+            runUrl: "https://github.com/w7s-io/demo/actions/runs/123"
+          }
+        })
+      }),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as { status: string; data?: { telegramMessageId?: string } };
+    expect(body.status).toBe("success");
+    expect(body.data?.telegramMessageId).toBe("456");
+
+    const telegramCalls = fetchMock.mock.calls
+      .filter((call) => String((call as unknown as [string, RequestInit])[0]).startsWith("https://api.telegram.org/"));
+    expect(String((telegramCalls[0] as unknown as [string, RequestInit])[0])).toBe("https://api.telegram.org/botbot-token/sendMessage");
+    expect(String((telegramCalls[1] as unknown as [string, RequestInit])[0])).toBe("https://api.telegram.org/botbot-token/editMessageText");
+    const subscriberBody = JSON.parse(String((telegramCalls[1] as unknown as [string, RequestInit])[1].body)) as { chat_id: string; message_id: number; text: string };
+    expect(subscriberBody.chat_id).toBe("55555");
+    expect(subscriberBody.message_id).toBe(456);
+    expect(subscriberBody.text).toContain("*W7S Uploading archive*");
   });
 
   it("handles Telegram webhook updates with setup instructions", async () => {

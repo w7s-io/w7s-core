@@ -22,6 +22,12 @@ type NotifyOptions = {
   dedupeKey?: string;
   dedupeTtlSeconds?: number;
   parseMode?: "Markdown" | "MarkdownV2";
+  telegramMessageId?: string;
+};
+
+type TelegramSendResult = {
+  ok: boolean;
+  messageId?: string;
 };
 
 type JsonRecord = Record<string, unknown>;
@@ -91,6 +97,12 @@ const stringValue = (value: unknown) =>
 
 const numberValue = (value: unknown) =>
   typeof value === "number" && Number.isFinite(value) ? value : null;
+
+const telegramMessageIdValue = (value: unknown) => {
+  if (typeof value === "number" && Number.isSafeInteger(value) && value > 0) return String(value);
+  if (typeof value === "string" && /^[1-9]\d{0,31}$/.test(value.trim())) return value.trim();
+  return null;
+};
 
 const arrayValue = (value: unknown) =>
   Array.isArray(value) ? value : [];
@@ -191,44 +203,54 @@ const sendTelegramMessage = async (
   chatId: string,
   text: string,
   options?: NotifyOptions
-) => {
+): Promise<TelegramSendResult> => {
   const botToken = env.W7S_TELEGRAM_BOT_TOKEN?.trim();
-  if (!botToken || !chatId.trim()) return false;
+  if (!botToken || !chatId.trim()) return { ok: false };
   const dedupeOptions = options?.dedupeKey
     ? { ...options, dedupeKey: `chat:${chatId}:${options.dedupeKey}` }
     : options;
 
   try {
     const dedupeKey = await readDedupeKey(env, dedupeOptions);
-    if (dedupeOptions?.dedupeKey && dedupeOptions.dedupeTtlSeconds && !dedupeKey) return true;
-    const send = (parseMode?: NotifyOptions["parseMode"]) =>
-      fetch(`${TELEGRAM_API_BASE}/bot${botToken}/sendMessage`, {
+    if (dedupeOptions?.dedupeKey && dedupeOptions.dedupeTtlSeconds && !dedupeKey) return { ok: true };
+    const request = (method: "sendMessage" | "editMessageText", parseMode?: NotifyOptions["parseMode"]) =>
+      fetch(`${TELEGRAM_API_BASE}/bot${botToken}/${method}`, {
         method: "POST",
         headers: {
           "content-type": "application/json"
         },
         body: JSON.stringify({
           chat_id: chatId,
+          ...(method === "editMessageText" ? { message_id: Number(options?.telegramMessageId) } : {}),
           text: text.slice(0, 3900),
           ...(parseMode ? { parse_mode: parseMode } : {}),
           disable_web_page_preview: true
         })
       });
-    let response = await send(options?.parseMode);
+    const method = options?.telegramMessageId ? "editMessageText" : "sendMessage";
+    let response = await request(method, options?.parseMode);
     if (!response.ok && options?.parseMode) {
-      response = await send();
+      response = await request(method);
     }
     if (!response.ok) {
+      const errorBody = asRecord(await response.json().catch(() => null));
+      const description = stringValue(errorBody?.description);
+      if (method === "editMessageText" && description?.toLowerCase().includes("message is not modified")) {
+        return { ok: true, ...(options?.telegramMessageId ? { messageId: options.telegramMessageId } : {}) };
+      }
       console.warn(`W7S Telegram notification failed with HTTP ${response.status}.`);
-      return false;
+      return { ok: false };
     }
+    const body = asRecord(await response.json().catch(() => null));
+    const result = asRecord(body?.result);
+    const messageId = telegramMessageIdValue(result?.message_id) ?? options?.telegramMessageId;
     if (dedupeKey && dedupeOptions?.dedupeTtlSeconds) {
       await markDedupeKey(env, dedupeKey, dedupeOptions.dedupeTtlSeconds);
     }
-    return true;
+    return { ok: true, ...(messageId ? { messageId } : {}) };
   } catch (error) {
     console.warn(`W7S Telegram notification failed: ${error instanceof Error ? error.message : String(error)}`);
-    return false;
+    return { ok: false };
   }
 };
 
@@ -605,24 +627,31 @@ export const handleDeployStatus = async (c: Context<{ Bindings: Env }>) => {
   const telegram = asRecord(body.telegram);
   const subscriberChatId = normalizeTelegramChatId(stringValue(telegram?.chatId));
   const subscriberEvents = parseRepoEvents(stringValue(telegram?.events));
+  const subscriberMessageId = telegramMessageIdValue(telegram?.messageId);
   const chatIds = new Set(managerTelegramChatIds(c.env, message.event));
   if (subscriberChatId && repoEventsInclude(subscriberEvents, message.event)) {
     chatIds.add(subscriberChatId);
   }
 
-  await Promise.all(
-    [...chatIds].map((chatId) =>
-      sendTelegramMessage(c.env, chatId, message.text, {
-        parseMode: message.parseMode
+  const results = await Promise.all(
+    [...chatIds].map(async (chatId) => ({
+      chatId,
+      result: await sendTelegramMessage(c.env, chatId, message.text, {
+        parseMode: message.parseMode,
+        ...(subscriberChatId === chatId && subscriberMessageId ? { telegramMessageId: subscriberMessageId } : {})
       })
-    )
+    }))
   );
+  const subscriberResult = subscriberChatId
+    ? results.find((entry) => entry.chatId === subscriberChatId)?.result
+    : undefined;
 
   return jsonSuccess({
     notified: chatIds.size,
     event: message.event,
     repository: message.repository,
-    stage
+    stage,
+    ...(subscriberResult?.messageId ? { telegramMessageId: subscriberResult.messageId } : {})
   });
 };
 
