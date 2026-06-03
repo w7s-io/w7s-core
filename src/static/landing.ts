@@ -497,7 +497,7 @@ export const landingHtml = (target?: DeployShowcaseTarget) => `<!doctype html>
         <section class="hero">
           <div>
             <div class="badge">Open source GitHub-native deploys</div>
-            <h1><em>Instant cloud infra</em> for the agentic era</h1>
+            <h1>Instant cloud infra <em>for the agentic era</em></h1>
             <p class="lede">
               Deploy new apps in one push; no auth, no card, no config, <b>one commit away from shipping live</b>.
             </p>
