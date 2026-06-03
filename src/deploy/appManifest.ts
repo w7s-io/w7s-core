@@ -75,6 +75,9 @@ export type AppManifest = {
   rpc: {
     allow: string[];
   };
+  routing: {
+    defaultDomain: boolean;
+  };
 };
 
 const emptyManifest = (): AppManifest => ({
@@ -99,6 +102,9 @@ const emptyManifest = (): AppManifest => ({
   },
   rpc: {
     allow: []
+  },
+  routing: {
+    defaultDomain: true
   }
 });
 
@@ -409,6 +415,17 @@ const parseRpc = (value: unknown) => {
   };
 };
 
+const parseRouting = (value: unknown) => {
+  if (value === undefined) return { defaultDomain: true };
+  const record = asRecord(value, "routing");
+  const defaultDomain = record.defaultDomain ?? record.default_domain;
+  if (defaultDomain === undefined) return { defaultDomain: true };
+  if (typeof defaultDomain !== "boolean") {
+    throw new Error("routing.defaultDomain must be a boolean.");
+  }
+  return { defaultDomain };
+};
+
 export const readAppManifest = (archive: DeployArchive) => {
   const raw = readTextFile(archive, "w7s.json");
   if (!raw) return emptyManifest();
@@ -437,7 +454,8 @@ export const readAppManifest = (archive: DeployArchive) => {
     secrets: parseEnvNames(record.secrets, "secrets"),
     queue: parseQueue(record.queue),
     workflow: parseWorkflow(record.workflow),
-    rpc: parseRpc(record.rpc)
+    rpc: parseRpc(record.rpc),
+    routing: parseRouting(record.routing)
   } satisfies AppManifest;
 };
 

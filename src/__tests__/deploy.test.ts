@@ -437,6 +437,118 @@ describe("deploy API", () => {
     expect(mapping?.repoSlug).toBe("whereis");
   });
 
+  it("stores deployments that disable the default domain when a custom domain attaches", async () => {
+    vi.stubGlobal("fetch", stubCustomDomainFetch({ repository: "guerrerocarlos/whereis" }));
+    const env = createTestEnv({
+      CLOUDFLARE_API_TOKEN: "cf-token"
+    });
+    const response = await app.fetch(
+      deployRequest(
+        {
+          "CNAME": "whereis.carlosguerrero.com\n",
+          "w7s.json": JSON.stringify({
+            routing: {
+              defaultDomain: false
+            }
+          }),
+          "dist/client/index.html": "<h1>Hello</h1>"
+        },
+        {
+          "x-github-repository": "guerrerocarlos/whereis"
+        }
+      ),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as {
+      data?: {
+        url?: string;
+        deployment?: DeploymentRecord;
+        customDomains?: string[];
+      };
+    };
+    expect(body.data?.url).toBe("https://whereis.carlosguerrero.com/");
+    expect(body.data?.customDomains).toEqual(["whereis.carlosguerrero.com"]);
+    expect(body.data?.deployment?.routing).toEqual({ defaultDomain: false });
+    const record = await loadDeploymentRecord(env, "production", "guerrerocarlos", "whereis");
+    expect(record?.routing).toEqual({ defaultDomain: false });
+  });
+
+  it("rejects default-domain-disabled deployments without a CNAME file", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith("https://api.github.com/repos/")) {
+          return Response.json({ full_name: "w7s-io/demo" });
+        }
+        return Response.json({ success: true, result: {} });
+      })
+    );
+    const env = createTestEnv();
+    const response = await app.fetch(
+      deployRequest({
+        "w7s.json": JSON.stringify({
+          routing: {
+            defaultDomain: false
+          }
+        }),
+        "dist/client/index.html": "<h1>Hello</h1>"
+      }),
+      env
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({
+        status: "error",
+        error: "routing.defaultDomain=false requires at least one hostname in a CNAME file."
+      })
+    );
+  });
+
+  it("rejects default-domain-disabled deployments when CNAME attachment is blocked", async () => {
+    vi.stubGlobal(
+      "fetch",
+      stubCustomDomainFetch({
+        repository: "guerrerocarlos/whereis",
+        txtAnswers: ['"omattic"']
+      })
+    );
+    const env = createTestEnv({
+      CLOUDFLARE_API_TOKEN: "cf-token"
+    });
+    const response = await app.fetch(
+      deployRequest(
+        {
+          "CNAME": "whereis.carlosguerrero.com\n",
+          "w7s.json": JSON.stringify({
+            routing: {
+              defaultDomain: false
+            }
+          }),
+          "dist/client/index.html": "<h1>Hello</h1>"
+        },
+        {
+          "x-github-repository": "guerrerocarlos/whereis"
+        }
+      ),
+      env
+    );
+
+    expect(response.status).toBe(400);
+    const body = await response.json() as {
+      error?: string;
+      details?: { blockedCustomDomains?: Array<{ reason?: string }> };
+    };
+    expect(body.error).toBe("routing.defaultDomain=false requires an attached custom domain.");
+    expect(body.details?.blockedCustomDomains).toEqual([
+      expect.objectContaining({ reason: "txt_allowlist_mismatch" })
+    ]);
+    await expect(loadDeploymentRecord(env, "production", "guerrerocarlos", "whereis")).resolves.toBeNull();
+  });
+
   it("attaches every hostname listed in a CNAME file", async () => {
     vi.stubGlobal("fetch", stubCustomDomainFetch({ repository: "guerrerocarlos/whereis" }));
     const env = createTestEnv({

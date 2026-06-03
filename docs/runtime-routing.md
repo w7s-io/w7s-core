@@ -116,6 +116,18 @@ https://whereis.carlosguerrero.com/assets/app.js
 
 Deploy-time custom-domain claims are soft-verified. Any repo can claim a hostname without TXT, and the latest deployment replaces previous unverified claims. W7S warns the caller to add `_w7s.<zone>`. If that TXT exists, it must list the GitHub owner or exact repo, for example `guerrerocarlos` or `guerrerocarlos/whereis`; TXT authorization then decides whether ownership can move.
 
+Deployments can opt out of default `*.w7s.cloud` routing in `w7s.json`:
+
+```json
+{
+  "routing": {
+    "defaultDomain": false
+  }
+}
+```
+
+When disabled, the deployment only serves through attached custom domains from `CNAME`. Requests to the default `w7s.cloud` route behave as if that deployment is not present.
+
 Reserved platform paths:
 
 - `/api/v1/*`

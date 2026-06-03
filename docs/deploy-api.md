@@ -198,6 +198,9 @@ Example:
   },
   "rpc": {
     "allow": ["guerrerocarlos/notepad", "w7s-io"]
+  },
+  "routing": {
+    "defaultDomain": true
   }
 }
 ```
@@ -215,6 +218,18 @@ Example:
 ```
 
 Managed storage is scoped to `<environment>/<owner>/<repo>/<binding>`, so redeploys reuse durable resources while non-production branches get separate resources.
+
+`routing.defaultDomain` controls whether the deployment is served from the default `*.w7s.cloud` URL. It defaults to `true`. Set it to `false` when the app should only be reachable through a custom domain declared in `CNAME`:
+
+```json
+{
+  "routing": {
+    "defaultDomain": false
+  }
+}
+```
+
+When `routing.defaultDomain` is `false`, the archive must include a `CNAME` file and at least one custom domain must attach successfully. If the `CNAME` claim is missing or blocked, the deploy fails instead of publishing a default `w7s.cloud` URL.
 
 D1 migrations are read from the configured migrations directory, sorted by filename, and applied once. W7S tracks applied migration filenames in `_w7s_migrations` inside the app database.
 
@@ -575,7 +590,7 @@ Example:
 }
 ```
 
-When a custom domain is blocked, the deployment still publishes and returns the normal `w7s.cloud` URL:
+When a custom domain is blocked, the deployment still publishes and returns the normal `w7s.cloud` URL unless `routing.defaultDomain` is `false`:
 
 ```json
 {
@@ -595,6 +610,8 @@ When a custom domain is blocked, the deployment still publishes and returns the 
   }
 }
 ```
+
+With `routing.defaultDomain=false`, the same blocked custom-domain claim returns `400 routing.defaultDomain=false requires an attached custom domain.` and does not store the deployment.
 
 For same-name repos, the public URL is the org root. A deploy from `guerrerocarlos/guerrerocarlos` returns:
 

@@ -303,3 +303,5 @@ Wildcard DNS is intentionally managed manually. Before enabling the wildcard Wor
 - Proxy status: proxied
 
 Custom-domain DNS is also manual. A root `CNAME` file can claim `app.example.com`; create DNS pointing that host to `w7s.cloud`. Add TXT `_w7s.example.com` with values like `owner` or `owner/repo` to restrict which GitHub repos can use hostnames on that zone.
+
+Apps can opt out of the default `*.w7s.cloud` route by adding `routing.defaultDomain=false` to `w7s.json`. This requires a successfully attached `CNAME` custom domain and makes the app serve only from that custom hostname.

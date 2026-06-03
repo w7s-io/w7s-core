@@ -30,6 +30,9 @@ export type DeploymentRecord = {
   commitSha: string;
   deployedAt: string;
   customDomains?: string[];
+  routing?: {
+    defaultDomain: boolean;
+  };
   bindings?: DeploymentBindings;
   ai?: DeploymentAiConfig;
   rpc?: DeploymentRpc;

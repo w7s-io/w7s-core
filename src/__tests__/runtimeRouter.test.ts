@@ -617,6 +617,52 @@ describe("runtime router", () => {
     expect(await assetResponse.text()).toContain("whereis");
   });
 
+  it("does not serve default domains when deployment routing disables them", async () => {
+    const env = createTestEnv();
+    const record = await storeStaticDeployment(env, {
+      orgSlug: "guerrerocarlos",
+      repoSlug: "whereis",
+      files: {
+        "index.html": {
+          body: "<h1>Where is Carlos?</h1>",
+          contentType: "text/html; charset=utf-8"
+        }
+      }
+    });
+    const customDomainOnlyRecord: DeploymentRecord = {
+      ...record,
+      routing: {
+        defaultDomain: false
+      }
+    };
+    await storeDeploymentRecord(env, customDomainOnlyRecord);
+    await storeCustomDomainMappings(env, customDomainOnlyRecord, ["whereis.carlosguerrero.com"]);
+
+    const defaultDomainResponse = await app.fetch(
+      new Request("https://guerrerocarlos.w7s.cloud/whereis/", {
+        headers: {
+          host: "guerrerocarlos.w7s.cloud"
+        }
+      }),
+      env
+    );
+    const customDomainResponse = await app.fetch(
+      new Request("https://whereis.carlosguerrero.com/", {
+        headers: {
+          host: "whereis.carlosguerrero.com"
+        }
+      }),
+      env
+    );
+
+    expect(defaultDomainResponse.status).toBe(200);
+    expect(await defaultDomainResponse.text()).toContain(
+      "Nothing is deployed at <code>https://guerrerocarlos.w7s.cloud/whereis/</code> yet."
+    );
+    expect(customDomainResponse.status).toBe(200);
+    expect(await customDomainResponse.text()).toContain("Where is Carlos?");
+  });
+
   it("lets custom-domain worker redirects run before exact static assets", async () => {
     const calls: string[] = [];
     const redirectModes: string[] = [];

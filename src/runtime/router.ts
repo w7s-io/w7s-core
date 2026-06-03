@@ -295,6 +295,7 @@ export const resolveRuntimeRequest = async (
     );
     markTiming("deployment");
     if (!deployment) continue;
+    if (!customDomain && deployment.routing?.defaultDomain === false) continue;
 
     const suspended = await enforceAppNotSuspended(env, {
       environment: deployment.environment,

@@ -229,6 +229,9 @@ export const handleDeploy = async (c: HonoContext) => {
   if (hasNativeRoot && !hasNativeBackend && hasStatic) {
     deploymentWarnings.push(nativeBackendSkippedWarning(nativeRoots));
   }
+  if (!appManifest.routing.defaultDomain && customDomains.length === 0) {
+    return jsonError("routing.defaultDomain=false requires at least one hostname in a CNAME file.", 400);
+  }
   if (!hasNativeBackend && appManifest.queues.length > 0) {
     return jsonError("Queues require a native backend deployment.", 400);
   }
@@ -402,6 +405,13 @@ export const handleDeploy = async (c: HonoContext) => {
     return jsonError(error instanceof Error ? error.message : String(error), 500);
   }
 
+  if (!appManifest.routing.defaultDomain && attachedCustomDomains.length === 0) {
+    await refundBillingReservation(c.env, billingReservation as BillingReservation | null);
+    return jsonError("routing.defaultDomain=false requires an attached custom domain.", 400, {
+      blockedCustomDomains
+    });
+  }
+
   const record: DeploymentRecord = {
     version: 1,
     orgSlug,
@@ -412,6 +422,9 @@ export const handleDeploy = async (c: HonoContext) => {
     commitSha,
     deployedAt,
     ...(attachedCustomDomains.length > 0 ? { customDomains: attachedCustomDomains } : {}),
+    ...(appManifest.routing.defaultDomain === false
+      ? { routing: { defaultDomain: false } }
+      : {}),
     ...(deploymentBindings ? { bindings: deploymentBindings } : {}),
     ...(deploymentAi ? { ai: deploymentAi } : {}),
     ...(deploymentRpc ? { rpc: deploymentRpc } : {}),
@@ -494,7 +507,13 @@ export const handleDeploy = async (c: HonoContext) => {
           }
         : {})
     },
-    url: publicDeploymentUrl(c.env, orgSlug, repoSlug, environment, attachedCustomDomains),
+    url: publicDeploymentUrl(
+      c.env,
+      orgSlug,
+      repoSlug,
+      environment,
+      attachedCustomDomains
+    ),
     ...(deploymentWarnings.length > 0 ? { deploymentWarnings } : {}),
     ...(attachedCustomDomains.length > 0 ? { customDomains: attachedCustomDomains } : {}),
     ...(customDomainWarnings.length > 0 ? { customDomainWarnings } : {}),
