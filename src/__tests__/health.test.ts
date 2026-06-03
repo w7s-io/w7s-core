@@ -39,8 +39,8 @@ describe("landing page", () => {
     expect(body).not.toContain("og:");
     expect(body).not.toContain("twitter:");
     expect(body).toContain("<title>W7S Cloud</title>");
-    expect(body).toContain("<h1>The Cloud that <em>just works</em>.</h1>");
-    expect(body).toContain("GitHub Actions builds your app");
+    expect(body).toContain("<h1>Easy, instant cloud infrastructure for the agentic era</h1>");
+    expect(body).toContain("Deploy new apps in one push; no auth, no card, no config, one commit away from shipping live.");
     expect(body).toContain("https://www.w7s.io/docs/");
     expect(body).toContain("name: Deploy");
     expect(body).toContain("push:");

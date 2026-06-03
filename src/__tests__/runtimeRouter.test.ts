@@ -415,7 +415,7 @@ describe("runtime router", () => {
     expect(body).toContain(`<meta name="robots" content="${NO_PREVIEW_ROBOTS}" />`);
     expect(body).not.toContain("og:");
     expect(body).not.toContain("twitter:");
-    expect(body).toContain("<h1>The Cloud that <em>just works</em>.</h1>");
+    expect(body).toContain("<h1>Easy, instant cloud infrastructure for the agentic era</h1>");
     expect(body).toContain("Deploy target");
     expect(body).toContain("<h2>Nothing is deployed here yet.</h2>");
     expect(body).toContain("Nothing is deployed at <code>https://sadasant.w7s.cloud/</code> yet.");
@@ -481,7 +481,7 @@ describe("runtime router", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/html");
-    expect(body).toContain("<h1>The Cloud that <em>just works</em>.</h1>");
+    expect(body).toContain("<h1>Easy, instant cloud infrastructure for the agentic era</h1>");
     expect(body).toContain("Deploy target");
     expect(body).toContain("<h2>Nothing is deployed here yet.</h2>");
     expect(body).toContain("Nothing is deployed at <code>https://sadasant.w7s.cloud/missing-repo/</code> yet.");

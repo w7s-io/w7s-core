@@ -497,9 +497,9 @@ export const landingHtml = (target?: DeployShowcaseTarget) => `<!doctype html>
         <section class="hero">
           <div>
             <div class="badge">Open source GitHub-native deploys</div>
-            <h1>The Cloud that <em>just works</em>.</h1>
+            <h1>Easy, instant cloud infrastructure for the agentic era</h1>
             <p class="lede">
-              <code>w7s.cloud</code> is the hosted W7S deploy environment. GitHub Actions builds your app; W7S ships the output to live environments and serves it at a public URL. <strong>Your deployment workflow is the control plane.</strong>
+              Deploy new apps in one push; no auth, no card, no config, one commit away from shipping live.
             </p>
             <div class="actions">
               <a class="button primary" href="https://www.w7s.io/docs/deploy-from-github/">Deploy from GitHub</a>
