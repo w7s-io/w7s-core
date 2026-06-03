@@ -497,9 +497,9 @@ export const landingHtml = (target?: DeployShowcaseTarget) => `<!doctype html>
         <section class="hero">
           <div>
             <div class="badge">Open source GitHub-native deploys</div>
-            <h1>Easy, instant cloud infrastructure for the agentic era</h1>
+            <h1><em>Instant cloud</em> infra for the agentic era</h1>
             <p class="lede">
-              Deploy new apps in one push; no auth, no card, no config, one commit away from shipping live.
+              Deploy new apps in one push; no auth, no card, no config, <em>one commit away from shipping live</em>.
             </p>
             <div class="actions">
               <a class="button primary" href="https://www.w7s.io/docs/deploy-from-github/">Deploy from GitHub</a>
