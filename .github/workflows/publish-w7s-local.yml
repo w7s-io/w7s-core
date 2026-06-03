@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths:
+      - ".github/workflows/publish-w7s-local.yml"
+      - "packages/w7s-local/**"
   workflow_dispatch:
 
 permissions:
