@@ -3,6 +3,14 @@ import { app } from "../worker";
 import { createTestEnv } from "./mocks";
 import { NO_PREVIEW_ROBOTS } from "../noPreview";
 
+const expectLandingHero = (body: string) => {
+  expect(body).toMatch(/<section class="hero">[\s\S]*<h1>[\s\S]+<\/h1>/);
+  expect(body).toMatch(/<p class="lede">\s*[\s\S]+?\s*<\/p>/);
+  expect(body).toContain('<section class="terminal" aria-label="GitHub Actions deploy workflow">');
+  expect(body).toContain('<p class="deploy-copy">');
+  expect(body.indexOf("<pre><code>")).toBeLessThan(body.indexOf('<p class="deploy-copy">'));
+};
+
 describe("health endpoint", () => {
   it("exposes deploy metadata", async () => {
     const env = createTestEnv({
@@ -39,8 +47,7 @@ describe("landing page", () => {
     expect(body).not.toContain("og:");
     expect(body).not.toContain("twitter:");
     expect(body).toContain("<title>W7S Cloud</title>");
-    expect(body).toContain("<h1>Easy, instant cloud infrastructure for the agentic era</h1>");
-    expect(body).toContain("Deploy new apps in one push; no auth, no card, no config, one commit away from shipping live.");
+    expectLandingHero(body);
     expect(body).toContain("https://www.w7s.io/docs/");
     expect(body).toContain("name: Deploy");
     expect(body).toContain("push:");
@@ -51,7 +58,6 @@ describe("landing page", () => {
     expect(body).toContain("© 2026 W7S SERVICES LLC");
     expect(body).toContain('href="https://w7s.io/terms"');
     expect(body).toContain('href="https://w7s.io/privacy"');
-    expect(body.indexOf("<pre><code>")).toBeLessThan(body.indexOf("Add this GitHub Actions workflow"));
     expect(body).toContain('<strong class="workflow-action">w7s-io/w7s-cloud@v1</strong>');
     expect(body).toContain("token: ${{ github.token }}");
     expect(body).toContain("usage-check-only");

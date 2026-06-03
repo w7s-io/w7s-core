@@ -12,6 +12,14 @@ import { recordUsageEvent } from "../usage";
 import { usageLimitPolicyKey } from "../usageLimits";
 import { NO_PREVIEW_ROBOTS } from "../noPreview";
 
+const expectLandingHero = (body: string) => {
+  expect(body).toMatch(/<section class="hero">[\s\S]*<h1>[\s\S]+<\/h1>/);
+  expect(body).toMatch(/<p class="lede">\s*[\s\S]+?\s*<\/p>/);
+  expect(body).toContain('<section class="terminal" aria-label="GitHub Actions deploy workflow">');
+  expect(body).toContain('<p class="deploy-copy">');
+  expect(body.indexOf("<pre><code>")).toBeLessThan(body.indexOf('<p class="deploy-copy">'));
+};
+
 const storeStaticDeployment = async (
   env: ReturnType<typeof createTestEnv>,
   params: {
@@ -415,17 +423,12 @@ describe("runtime router", () => {
     expect(body).toContain(`<meta name="robots" content="${NO_PREVIEW_ROBOTS}" />`);
     expect(body).not.toContain("og:");
     expect(body).not.toContain("twitter:");
-    expect(body).toContain("<h1>Easy, instant cloud infrastructure for the agentic era</h1>");
-    expect(body).toContain("Deploy target");
-    expect(body).toContain("<h2>Nothing is deployed here yet.</h2>");
-    expect(body).toContain("Nothing is deployed at <code>https://sadasant.w7s.cloud/</code> yet.");
+    expectLandingHero(body);
+    expect(body).toContain('<section class="target hover-lift">');
+    expect(body).toContain("<code>https://sadasant.w7s.cloud/</code>");
     expect(body).toContain("https://github.com/sadasant/sadasant");
     expect(body).toContain("<code>sadasant/sadasant</code>");
     expect(body).toContain("https://sadasant.w7s.cloud/");
-    expect(body).toContain("W7S uses one subdomain per GitHub owner");
-    expect(body).toContain("every other repo deploys under <code>/repo-name/</code>");
-    expect(body).toContain("same-name repo convention");
-    expect(body).toContain("Every other repo owned by <code>sadasant</code> deploys on this same subdomain");
     expect(body).toContain("<code>https://sadasant.w7s.cloud/repo-name/</code>");
     expect(body).toContain("<code>sadasant/repo-name</code>");
     expect(body).toContain("push:");
@@ -436,7 +439,6 @@ describe("runtime router", () => {
     expect(body).toContain("© 2026 W7S SERVICES LLC");
     expect(body).toContain('href="https://w7s.io/terms"');
     expect(body).toContain('href="https://w7s.io/privacy"');
-    expect(body.indexOf("<pre><code>")).toBeLessThan(body.indexOf("Add this GitHub Actions workflow"));
     expect(body).toContain('<strong class="workflow-action">w7s-io/w7s-cloud@v1</strong>');
     expect(body).toContain("token: ${{ github.token }}");
     expect(body).toContain("usage-check-only");
@@ -481,21 +483,18 @@ describe("runtime router", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/html");
-    expect(body).toContain("<h1>Easy, instant cloud infrastructure for the agentic era</h1>");
-    expect(body).toContain("Deploy target");
-    expect(body).toContain("<h2>Nothing is deployed here yet.</h2>");
-    expect(body).toContain("Nothing is deployed at <code>https://sadasant.w7s.cloud/missing-repo/</code> yet.");
+    expectLandingHero(body);
+    expect(body).toContain('<section class="target hover-lift">');
+    expect(body).toContain("<code>https://sadasant.w7s.cloud/missing-repo/</code>");
     expect(body).toContain("https://github.com/sadasant/missing-repo");
     expect(body).toContain("<code>sadasant/missing-repo</code>");
     expect(body).toContain("https://sadasant.w7s.cloud/missing-repo/");
-    expect(body).toContain("W7S uses one subdomain per GitHub owner");
-    expect(body).toContain("every other repo deploys under <code>/repo-name/</code>");
     expect(body).toContain("w7s-io/w7s-cloud@v1");
     expect(body).toContain("© 2026 W7S SERVICES LLC");
     expect(body).toContain('href="https://w7s.io/terms"');
     expect(body).toContain('href="https://w7s.io/privacy"');
     expect(body).toContain("usage-check-only");
-    expect(body).not.toContain("same-name repo convention");
+    expect(body).not.toContain("<code>sadasant/repo-name</code>");
   });
 
   it("serves same-name repo static deployments from the org root", async () => {
@@ -657,7 +656,7 @@ describe("runtime router", () => {
 
     expect(defaultDomainResponse.status).toBe(200);
     expect(await defaultDomainResponse.text()).toContain(
-      "Nothing is deployed at <code>https://guerrerocarlos.w7s.cloud/whereis/</code> yet."
+      "<code>https://guerrerocarlos.w7s.cloud/whereis/</code>"
     );
     expect(customDomainResponse.status).toBe(200);
     expect(await customDomainResponse.text()).toContain("Where is Carlos?");
