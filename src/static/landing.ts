@@ -64,7 +64,7 @@ export const landingHtml = (target?: DeployShowcaseTarget) => `<!doctype html>
         --bg: #050505;
         --surface: #0f0f11;
         --surface-2: #16161a;
-        --amber: #f59e0b;
+        --amber: #fbbf24;
         --amber-hover: #fcd34d;
         --text: #fafafa;
         --text-muted: #d4d4d8;
@@ -209,7 +209,7 @@ export const landingHtml = (target?: DeployShowcaseTarget) => `<!doctype html>
         height: 6px;
         border-radius: 999px;
         background: var(--amber);
-        box-shadow: 0 0 18px rgba(245, 158, 11, 0.75);
+        box-shadow: 0 0 18px rgba(251, 191, 36, 0.75);
       }
       h1 {
         margin: 32px 0 0;
@@ -279,7 +279,7 @@ export const landingHtml = (target?: DeployShowcaseTarget) => `<!doctype html>
       }
       .button:hover {
         transform: translateY(-2px);
-        border-color: rgba(245, 158, 11, 0.55);
+        border-color: rgba(251, 191, 36, 0.55);
         color: var(--amber);
       }
       .button.primary:hover {
@@ -378,7 +378,7 @@ export const landingHtml = (target?: DeployShowcaseTarget) => `<!doctype html>
       }
       .hover-lift:hover {
         transform: translateY(-2px);
-        border-color: rgba(245, 158, 11, 0.4);
+        border-color: rgba(251, 191, 36, 0.4);
       }
       .deploy-copy {
         margin-top: 18px;
