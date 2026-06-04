@@ -12,17 +12,17 @@ Read one repo's usage for one day:
 
 ```sh
 curl "https://w7s.cloud/api/v1/usage/<owner>/<repo>?date=2026-05-26" \
-  -H "Authorization: Bearer $GITHUB_TOKEN"
+  -H "Authorization: Bearer $GITHUB_ACTIONS_OIDC_TOKEN"
 ```
 
 Include hourly Cloudflare records:
 
 ```sh
 curl "https://w7s.cloud/api/v1/usage/<owner>/<repo>?date=2026-05-26&include=hourly" \
-  -H "Authorization: Bearer $GITHUB_TOKEN"
+  -H "Authorization: Bearer $GITHUB_ACTIONS_OIDC_TOKEN"
 ```
 
-The bearer token must be able to access `github.com/<owner>/<repo>`. This is the same authorization model used by deploys.
+The bearer token must be a GitHub Actions OIDC token whose `repository` claim matches `<owner>/<repo>`. This is the same authorization model used by deploys.
 
 Optional environment override:
 
@@ -37,10 +37,10 @@ Read the effective limit policy without usage counters:
 
 ```sh
 curl "https://w7s.cloud/api/v1/limits/<owner>/<repo>" \
-  -H "Authorization: Bearer $GITHUB_TOKEN"
+  -H "Authorization: Bearer $GITHUB_ACTIONS_OIDC_TOKEN"
 ```
 
-The bearer token must be able to access the same GitHub repository.
+The bearer token must match the same GitHub repository.
 
 ## Storage
 

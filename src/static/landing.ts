@@ -533,7 +533,7 @@ export const landingHtml = (target?: DeployShowcaseTarget) => `<!doctype html>
               </div>
               <pre><code>${deployWorkflowHtml()}</code></pre>
             </section>
-            <p class="deploy-copy">Add this GitHub Actions workflow to any repo and push to GitHub. Manual runs deploy too; scheduled runs only check usage limits and update the warning issue. W7S verifies access with the repo's GitHub token and serves it at <code>&lt;owner&gt;.w7s.cloud/&lt;repo&gt;/</code>.</p>
+            <p class="deploy-copy">Add this GitHub Actions workflow to any repo and push to GitHub. Manual runs deploy too; scheduled runs only check usage limits and update the warning issue. W7S verifies access with GitHub Actions OIDC and serves it at <code>&lt;owner&gt;.w7s.cloud/&lt;repo&gt;/</code>.</p>
           </div>
         </section>
         <section class="panel" aria-label="W7S capabilities">

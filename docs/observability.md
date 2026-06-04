@@ -7,11 +7,11 @@ W7S has two observability paths:
 
 ## Analytics API
 
-Read per-repository platform analytics with a GitHub token that can access the repo:
+Read per-repository platform analytics with a GitHub Actions OIDC token for the repo:
 
 ```sh
 curl "https://w7s.cloud/api/v1/analytics/<owner>/<repo>?hours=24&limit=50" \
-  -H "Authorization: Bearer $GITHUB_TOKEN"
+  -H "Authorization: Bearer $GITHUB_ACTIONS_OIDC_TOKEN"
 ```
 
 Query parameters:
@@ -101,11 +101,11 @@ Queries account for Analytics Engine sampling with `_sample_interval`.
 
 Every native backend uploaded by W7S gets a `tail_consumers` entry pointing at the W7S core Worker unless `W7S_DISABLE_WORKER_LOGS` is set. The core Worker exposes a `tail()` handler, maps the Tail Worker `scriptName` back to a deployed repository, and stores only mapped user Worker records in `DEPLOYMENTS_KV`.
 
-Read logs with a GitHub token that can access the repo:
+Read logs with a GitHub Actions OIDC token for the repo:
 
 ```sh
 curl "https://w7s.cloud/api/v1/logs/<owner>/<repo>?hours=1&limit=100" \
-  -H "Authorization: Bearer $GITHUB_TOKEN"
+  -H "Authorization: Bearer $GITHUB_ACTIONS_OIDC_TOKEN"
 ```
 
 Query parameters:

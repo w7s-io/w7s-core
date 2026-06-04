@@ -812,6 +812,7 @@ const botWorkflowExample = (chatId: string) =>
     "  push:",
     "  workflow_dispatch:",
     "permissions:",
+    "  id-token: write",
     "  contents: read",
     "jobs:",
     "  deploy:",
@@ -820,7 +821,6 @@ const botWorkflowExample = (chatId: string) =>
     "      - uses: actions/checkout@v5",
     "      - uses: w7s-io/w7s-cloud@v1",
     "        with:",
-    "          token: ${{ github.token }}",
     `          telegram-chat-id: "${chatId}"`,
     "          telegram-events: deploy_success,deploy_warning,deploy_error,app_suspended,payment_request"
   ].join("\n");

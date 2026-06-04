@@ -11,7 +11,7 @@ The body must be a zip archive of the full repository or a deployable subdirecto
 ## Required Headers
 
 ```text
-Authorization: Bearer <github-token>
+Authorization: Bearer <github-actions-oidc-token>
 x-github-repository: <owner>/<repo>
 x-github-sha: <commit-sha>
 x-github-branch: <branch-name>
@@ -31,16 +31,17 @@ The official `w7s-io/w7s-cloud@v1` action writes these headers from the workflow
 
 ## Authentication
 
-The deploy token is checked against GitHub:
+W7S authenticates deploys with a GitHub Actions OIDC JWT. The token must be issued by `https://token.actions.githubusercontent.com`, use `w7s.cloud`, `https://w7s.cloud`, or the default GitHub owner URL as the audience, and include a `repository` claim matching `x-github-repository`.
 
-```text
-GET https://api.github.com/repos/<owner>/<repo>
-Authorization: Bearer <github-token>
+Workflows must grant OIDC token access:
+
+```yaml
+permissions:
+  id-token: write
+  contents: read
 ```
 
-If GitHub returns `401`, `403`, or `404`, W7S rejects the deploy with `401`.
-
-This means deploy permission is equivalent to GitHub repo read access. The intended caller is GitHub Actions using `${{ github.token }}`.
+Legacy GitHub API bearer tokens are still accepted for compatibility and are checked against `GET https://api.github.com/repos/<owner>/<repo>`.
 
 ## Environment Selection
 
@@ -629,7 +630,7 @@ For same-name repos, the public URL is the org root. A deploy from `guerrerocarl
 - `401 Missing bearer token`
   - `Authorization: Bearer ...` is absent.
 - `401 Bearer token is not authorized`
-  - GitHub token cannot read the repo in `x-github-repository`.
+  - GitHub Actions OIDC token does not match the repo in `x-github-repository`.
 - `400 Archive must contain worker/, backend/, dist/server/, or static frontend output`
   - Archive does not contain a deployable root.
 - `400 Native backend deploy requires ...`

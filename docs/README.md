@@ -18,7 +18,7 @@ Start here:
 
 - one Cloudflare Worker hosts the API and landing page;
 - GitHub Actions uploads full repo zip archives to `POST /api/v1/deploy`;
-- deploy auth is the caller's GitHub token checked against the source repo;
+- deploy auth is the caller's GitHub Actions OIDC token checked against the source repo;
 - `backend/` or `worker/` is published as a native Workers for Platforms user Worker;
 - optional `w7s.json` manifests declare per-app KV, R2, D1, Durable Objects, Hyperdrive, queues, schedules, workflows, vars, and secrets;
 - native backends receive `W7S_RPC`, `W7S_QUEUE`, `W7S_WORKFLOW`, and `W7S_AI` service bindings through the core;

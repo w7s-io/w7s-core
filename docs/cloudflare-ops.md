@@ -286,7 +286,7 @@ App owners can read logs for repositories they can access through:
 
 ```text
 GET /api/v1/logs/<owner>/<repo>?hours=1&limit=100
-Authorization: Bearer <github-token>
+Authorization: Bearer <github-actions-oidc-token>
 ```
 
 Optional filters:
@@ -347,10 +347,10 @@ The authenticated read API is:
 
 ```text
 GET /api/v1/usage/<owner>/<repo>?date=YYYY-MM-DD
-Authorization: Bearer <github-token>
+Authorization: Bearer <github-actions-oidc-token>
 ```
 
-The token must have GitHub access to the target repository. Current metrics include deploys, runtime requests, Cloudflare-polled Worker/R2/KV/D1/Durable Object signals, RPC dispatches, queues, schedules, and workflows. Durable Object storage operation units are attributed by namespace ID when namespace IDs are discoverable from Durable Object invocation analytics. Durable Object stored bytes remain an attribution gap.
+The token's `repository` claim must match the target repository. Current metrics include deploys, runtime requests, Cloudflare-polled Worker/R2/KV/D1/Durable Object signals, RPC dispatches, queues, schedules, and workflows. Durable Object storage operation units are attributed by namespace ID when namespace IDs are discoverable from Durable Object invocation analytics. Durable Object stored bytes remain an attribution gap.
 
 Hourly Cloudflare usage records are stored under:
 
@@ -370,7 +370,7 @@ Effective limit policies are also readable without usage counters:
 
 ```text
 GET /api/v1/limits/<owner>/<repo>
-Authorization: Bearer <github-token>
+Authorization: Bearer <github-actions-oidc-token>
 ```
 
 Policy overrides are W7S-owned KV records, not app-controlled config:

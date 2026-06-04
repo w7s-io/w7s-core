@@ -8,7 +8,7 @@ This repo contains the public W7S worker, deploy API, runtime router, and storag
 
 - one Cloudflare Worker serves the public frontend and API;
 - `POST /api/v1/deploy` accepts GitHub Actions repo zips;
-- deployments are authorized by the GitHub token's access to the source repo;
+- deployments are authorized by GitHub Actions OIDC tokens for the source repo;
 - `worker/` or `backend/` apps publish to Workers for Platforms;
 - Cloudflare-style SSR output in `dist/server` plus assets in `dist/client` is supported;
 - `w7s.json` can declare per-app KV, R2, D1, Durable Objects, Hyperdrive, queues, schedules, workflows, vars, and secrets for native backends;
@@ -28,7 +28,7 @@ Health is available at both `GET /health` and `GET /api/v1/health`. GitHub Actio
 
 ```sh
 curl -X POST "https://w7s.cloud/api/v1/deploy" \
-  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Authorization: Bearer $GITHUB_ACTIONS_OIDC_TOKEN" \
   -H "x-github-repository: owner/repo" \
   -H "x-github-sha: $GITHUB_SHA" \
   -H "x-github-branch: main" \
@@ -57,11 +57,11 @@ https://<branch-environment>--<org>.w7s.cloud/<repo>/
 
 ## Usage API
 
-Daily usage rollups are available to callers whose GitHub token can access the target repository:
+Daily usage rollups are available to callers with a GitHub Actions OIDC token for the target repository:
 
 ```sh
 curl "https://w7s.cloud/api/v1/usage/<owner>/<repo>?date=2026-05-26" \
-  -H "Authorization: Bearer $GITHUB_TOKEN"
+  -H "Authorization: Bearer $GITHUB_ACTIONS_OIDC_TOKEN"
 ```
 
 Optional environment override:
@@ -75,7 +75,7 @@ Effective limit policies are available separately:
 
 ```sh
 curl "https://w7s.cloud/api/v1/limits/<owner>/<repo>" \
-  -H "Authorization: Bearer $GITHUB_TOKEN"
+  -H "Authorization: Bearer $GITHUB_ACTIONS_OIDC_TOKEN"
 ```
 
 Limit policy overrides are W7S-owned KV records, not app-controlled `w7s.json` config.
@@ -288,7 +288,6 @@ Repo subscribers are linked during an authenticated deploy. The reusable action 
 ```yaml
 - uses: w7s-io/w7s-cloud@v1
   with:
-    token: ${{ github.token }}
     telegram-chat-id: "123456789"
     telegram-events: deploy_success,deploy_warning,deploy_error,app_suspended,payment_request
 ```

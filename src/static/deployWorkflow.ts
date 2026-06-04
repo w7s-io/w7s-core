@@ -11,6 +11,7 @@ on:
     - cron: "17 9 * * *"
 
 permissions:
+  id-token: write
   contents: read
   issues: write
 
@@ -23,7 +24,6 @@ jobs:
 
       - uses: w7s-io/w7s-cloud@v1
         with:
-          token: \${{ github.token }}
           usage-check-only: \${{ github.event_name == 'schedule' }}`;
 
 const escapeHtml = (value: string) =>

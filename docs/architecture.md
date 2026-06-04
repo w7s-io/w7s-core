@@ -132,7 +132,7 @@ Those can be rebuilt later as W7S-deployed apps/components on top of this core.
 
 ```text
 POST /api/v1/deploy
-  -> verify GitHub token can access x-github-repository
+  -> verify GitHub Actions OIDC token matches x-github-repository
   -> unzip archive
   -> read optional w7s.json and encoded runtime values
   -> detect backend/ or worker/
