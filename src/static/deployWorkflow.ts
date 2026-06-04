@@ -20,7 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-        if: github.event_name != 'schedule'
 
       - uses: w7s-io/w7s-cloud@v1
         with:

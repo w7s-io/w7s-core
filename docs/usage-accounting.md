@@ -42,6 +42,12 @@ curl "https://w7s.cloud/api/v1/limits/<owner>/<repo>" \
 
 The bearer token must match the same GitHub repository.
 
+## Best Practices
+
+Keep deploy workflows simple: check out the repository before `w7s-io/w7s-cloud@v1` so push and manual runs always upload the current app archive.
+
+For scheduled quota checks, use a separate workflow with `usage-check-only: true` and omit `actions/checkout`. That workflow does not package or deploy the repo, so it does not need source files and should not include `if: github.event_name != 'schedule'` in the main deploy workflow.
+
 ## Storage
 
 Rollups are stored in `DEPLOYMENTS_KV` under:
