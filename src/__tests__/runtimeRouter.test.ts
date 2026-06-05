@@ -433,17 +433,17 @@ describe("runtime router", () => {
     expect(body).toContain("<code>sadasant/repo-name</code>");
     expect(body).toContain("push:");
     expect(body).toContain("workflow_dispatch");
-    expect(body).toContain("schedule:");
     expect(body).toContain("id-token: write");
-    expect(body).toContain("issues: write");
     expect(body).toContain("w7s-io/w7s-cloud@v1");
     expect(body).toContain("© 2026 W7S SERVICES LLC");
     expect(body).toContain('href="https://w7s.io/terms"');
     expect(body).toContain('href="https://w7s.io/privacy"');
     expect(body).toContain('<strong class="workflow-action">w7s-io/w7s-cloud@v1</strong>');
     expect(body).not.toContain("token: ${{ github.token }}");
-    expect(body).toContain("usage-check-only");
-    expect(body).toContain("github.event_name == 'schedule'");
+    expect(body).not.toContain("schedule:");
+    expect(body).not.toContain("issues: write");
+    expect(body).not.toContain("usage-check-only");
+    expect(body).not.toContain("github.event_name == 'schedule'");
     expect(body).toContain("branches:");
     expect(body).not.toContain("install-command");
     expect(body).not.toContain("build-command");
@@ -494,7 +494,7 @@ describe("runtime router", () => {
     expect(body).toContain("© 2026 W7S SERVICES LLC");
     expect(body).toContain('href="https://w7s.io/terms"');
     expect(body).toContain('href="https://w7s.io/privacy"');
-    expect(body).toContain("usage-check-only");
+    expect(body).not.toContain("usage-check-only");
     expect(body).not.toContain("<code>sadasant/repo-name</code>");
   });
 

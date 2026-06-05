@@ -7,13 +7,10 @@ on:
     branches:
       - main
   workflow_dispatch:
-  schedule:
-    - cron: "17 9 * * *"
 
 permissions:
   id-token: write
   contents: read
-  issues: write
 
 jobs:
   deploy:
@@ -21,9 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: w7s-io/w7s-cloud@v1
-        with:
-          usage-check-only: \${{ github.event_name == 'schedule' }}`;
+      - uses: w7s-io/w7s-cloud@v1`;
 
 const escapeHtml = (value: string) =>
   value
