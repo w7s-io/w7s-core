@@ -211,6 +211,9 @@ const queryWorkerMetrics = async (env: Env, params: {
   return [...metrics.values()];
 };
 
+const collectWorkerInvocationMetrics = (env: Env) =>
+  env.W7S_COLLECT_WORKER_INVOCATION_USAGE === "true";
+
 const queryDurableObjectMetrics = async (env: Env, params: {
   accountId: string;
   scriptName: string;
@@ -625,13 +628,15 @@ const collectDeploymentMetrics = async (env: Env, deployment: DeploymentRecord, 
   const metrics = new Map<string, CollectorMetric>();
   if (deployment.targets.worker?.scriptName) {
     addMetric(metrics, "worker.script", 1);
-    for (const metric of await safeCollect("worker", () => queryWorkerMetrics(env, {
-      accountId: params.accountId,
-      scriptName: deployment.targets.worker!.scriptName,
-      start: params.start.toISOString(),
-      end: params.end.toISOString()
-    }))) {
-      addMetric(metrics, metric.metric, metric.units, metric.source, metric.count);
+    if (collectWorkerInvocationMetrics(env)) {
+      for (const metric of await safeCollect("worker", () => queryWorkerMetrics(env, {
+        accountId: params.accountId,
+        scriptName: deployment.targets.worker!.scriptName,
+        start: params.start.toISOString(),
+        end: params.end.toISOString()
+      }))) {
+        addMetric(metrics, metric.metric, metric.units, metric.source, metric.count);
+      }
     }
   }
   if (deployment.targets.worker?.scriptName && (deployment.bindings?.durableObjects?.length ?? 0) > 0) {

@@ -59,10 +59,8 @@ describe("Cloudflare usage collector", () => {
     vi.restoreAllMocks();
   });
 
-  it("collects hourly Cloudflare metrics into daily usage and suspends exceeded apps", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+  it("collects scoped hourly Cloudflare resource metrics into daily usage and suspends exceeded apps", async () => {
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
         const body = JSON.parse(String(init?.body ?? "{}")) as { query?: string };
         if (body.query?.includes("workersInvocationsAdaptive")) {
           return Response.json({
@@ -222,8 +220,8 @@ describe("Cloudflare usage collector", () => {
           });
         }
         return Response.json({ data: { viewer: { accounts: [{}] } } });
-      })
-    );
+      });
+    vi.stubGlobal("fetch", fetchMock);
 
     const env = createTestEnv({
       CLOUDFLARE_API_TOKEN: "cf-token",
@@ -263,8 +261,6 @@ describe("Cloudflare usage collector", () => {
     expect(daily?.metrics).toEqual(
       expect.objectContaining({
         "worker.script": expect.objectContaining({ units: 1 }),
-        "worker.request": expect.objectContaining({ units: 7 }),
-        "runtime.cpu_ms": expect.objectContaining({ units: 14, source: "cloudflare_estimated" }),
         "kv.read": expect.objectContaining({ units: 8 }),
         "kv.write": expect.objectContaining({ units: 3 }),
         "kv.delete": expect.objectContaining({ units: 2 }),
@@ -285,6 +281,13 @@ describe("Cloudflare usage collector", () => {
         "durable_object.storage_deletes": expect.objectContaining({ units: 2 })
       })
     );
+    expect(daily?.metrics["worker.request"]).toBeUndefined();
+    expect(daily?.metrics["runtime.cpu_ms"]).toBeUndefined();
+    expect(
+      fetchMock.mock.calls.some(([, init]) =>
+        JSON.parse(String(init?.body ?? "{}")).query?.includes("workersInvocationsAdaptive")
+      )
+    ).toBe(false);
     expect(daily?.cloudflareHours).toEqual(["2026-05-26T11"]);
     await expect(
       listCloudflareUsageHourlyRecords(env, {
