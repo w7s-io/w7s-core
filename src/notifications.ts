@@ -134,6 +134,13 @@ const telegramField = (label: string, value: string) =>
 const telegramPlainField = (label: string, value: string) =>
   `${telegramHeading(`${label}:`)} ${telegramText(value)}`;
 
+const telegramMarkdownV2ToPlainText = (value: string) =>
+  value
+    .replace(/\\([_*\[\]()~`>#+\-=|{}.!\\])/g, "$1")
+    .replace(/```([\s\S]*?)```/g, "$1")
+    .replace(/`([^`]*)`/g, "$1")
+    .replace(/\*([^*]+)\*/g, "$1");
+
 const shortSha = (value: unknown) => {
   const sha = stringValue(value);
   return sha ? sha.slice(0, 12) : null;
@@ -213,7 +220,11 @@ const sendTelegramMessage = async (
   try {
     const dedupeKey = await readDedupeKey(env, dedupeOptions);
     if (dedupeOptions?.dedupeKey && dedupeOptions.dedupeTtlSeconds && !dedupeKey) return { ok: true };
-    const request = (method: "sendMessage" | "editMessageText", parseMode?: NotifyOptions["parseMode"]) =>
+    const request = (
+      method: "sendMessage" | "editMessageText",
+      parseMode?: NotifyOptions["parseMode"],
+      messageText = text
+    ) =>
       fetch(`${TELEGRAM_API_BASE}/bot${botToken}/${method}`, {
         method: "POST",
         headers: {
@@ -222,7 +233,7 @@ const sendTelegramMessage = async (
         body: JSON.stringify({
           chat_id: chatId,
           ...(method === "editMessageText" ? { message_id: Number(options?.telegramMessageId) } : {}),
-          text: text.slice(0, 3900),
+          text: messageText.slice(0, 3900),
           ...(parseMode ? { parse_mode: parseMode } : {}),
           disable_web_page_preview: true
         })
@@ -230,7 +241,11 @@ const sendTelegramMessage = async (
     const method = options?.telegramMessageId ? "editMessageText" : "sendMessage";
     let response = await request(method, options?.parseMode);
     if (!response.ok && options?.parseMode) {
-      response = await request(method);
+      response = await request(
+        method,
+        undefined,
+        options.parseMode === "MarkdownV2" ? telegramMarkdownV2ToPlainText(text) : text
+      );
     }
     if (!response.ok) {
       const errorBody = asRecord(await response.json().catch(() => null));

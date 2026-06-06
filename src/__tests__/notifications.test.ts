@@ -165,6 +165,47 @@ describe("Telegram notifications", () => {
     expect(body.text).toContain("`runtime.request`: `10001/10000`");
   });
 
+  it("falls back to readable plain text when Telegram rejects suspension Markdown", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json(
+        { ok: false, description: "Bad Request: can't parse entities" },
+        { status: 400 }
+      ))
+      .mockResolvedValueOnce(Response.json({ ok: true }));
+    vi.stubGlobal("fetch", fetchMock);
+    const env = telegramEnv();
+
+    await notifyAppSuspended(env, {
+      environment: "production",
+      orgSlug: "omattic",
+      repoSlug: "seokeywordexplorer-com",
+      reason: "Short-window usage limit exceeded for runtime.request at repo scope (300/300 used, requested 1).",
+      metrics: [
+        {
+          metric: "runtime.request",
+          status: "exceeded",
+          used: 300,
+          limit: 300,
+          remaining: 0,
+          message: "Short-window usage limit exceeded."
+        }
+      ],
+      resumeAfter: "2026-06-06T03:56:00.948Z",
+      at: new Date("2026-06-06T03:55:01.000Z")
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const first = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body)) as { text: string; parse_mode?: string };
+    const second = JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body)) as { text: string; parse_mode?: string };
+    expect(first.parse_mode).toBe("MarkdownV2");
+    expect(first.text).toContain("Short\\-window");
+    expect(second.parse_mode).toBeUndefined();
+    expect(second.text).toContain("Short-window usage limit exceeded");
+    expect(second.text).not.toContain("\\-");
+    expect(second.text).not.toContain("\\.");
+  });
+
   it("links a deploy action Telegram chat id to future repo alerts", async () => {
     const fetchMock = vi.fn(async () => Response.json({ ok: true }));
     vi.stubGlobal("fetch", fetchMock);
