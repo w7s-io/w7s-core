@@ -766,6 +766,12 @@ const collectDeploymentMetrics = async (env: Env, deployment: DeploymentRecord, 
   return record;
 };
 
+const failureMessage = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
+
+const usageFailureDetail = (deployment: DeploymentRecord, error: unknown) =>
+  `${deployment.repository} (${deployment.environment}): ${failureMessage(error)}`;
+
 export const collectHourlyCloudflareUsage = async (
   env: Env,
   now = new Date()
@@ -785,29 +791,41 @@ export const collectHourlyCloudflareUsage = async (
 
   const deployments = await listDeploymentRecords(env);
   const settled = await Promise.allSettled(
-    deployments.map((deployment) =>
-      collectDeploymentMetrics(env, deployment, {
+    deployments.map(async (deployment) => ({
+      deployment,
+      record: await collectDeploymentMetrics(env, deployment, {
         accountId,
         hour,
         start,
         end,
         syncedAt: now
       })
-    )
+    }))
   );
-  const failures = settled.filter((entry): entry is PromiseRejectedResult => entry.status === "rejected");
+  const failures = settled
+    .map((entry, index) => ({ entry, deployment: deployments[index] }))
+    .filter((item): item is { entry: PromiseRejectedResult; deployment: DeploymentRecord } =>
+      item.entry.status === "rejected" && Boolean(item.deployment)
+    );
   if (failures.length > 0) {
-    console.warn(`W7S Cloudflare usage collection failed for ${failures.length} deployment(s).`);
+    const details = failures.map(({ deployment, entry }) => usageFailureDetail(deployment, entry.reason));
+    console.warn(`W7S Cloudflare usage collection failed for ${failures.length} deployment(s): ${details.join("; ")}`);
     await notifyUsageCollectionFailures(env, {
       hour,
       deployments: deployments.length,
-      failures: failures.length
+      failures: failures.length,
+      details
     });
   }
   return {
     collected: true,
     hour,
     deployments: deployments.length,
-    failures: failures.length
+    failures: failures.length,
+    failureDetails: failures.map(({ deployment, entry }) => ({
+      repository: deployment.repository,
+      environment: deployment.environment,
+      error: failureMessage(entry.reason)
+    }))
   };
 };

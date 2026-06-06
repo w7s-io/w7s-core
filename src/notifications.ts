@@ -786,8 +786,12 @@ export const notifyUsageCollectionFailures = async (
     hour: string;
     deployments: number;
     failures: number;
+    details?: string[];
   }
 ) => {
+  const detailLines = (params.details ?? []).slice(0, 10).map((detail) =>
+    telegramField("-", detail)
+  );
   await notifyTelegramManager(
     env,
     "usage_collection_error",
@@ -795,7 +799,12 @@ export const notifyUsageCollectionFailures = async (
       telegramHeading("W7S usage collection failures"),
       telegramField("Hour", params.hour),
       telegramField("Deployments scanned", String(params.deployments)),
-      telegramField("Failures", String(params.failures))
+      telegramField("Failures", String(params.failures)),
+      ...(
+        detailLines.length > 0
+          ? ["", telegramHeading("Failure details"), ...detailLines]
+          : []
+      )
     ].join("\n"),
     {
       dedupeKey: `usage_collection_error:${params.hour}`,
