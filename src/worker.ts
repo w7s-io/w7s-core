@@ -16,11 +16,7 @@ import { handleScheduled } from "./runtime/scheduleDelivery";
 import { W7SWorkflow } from "./runtime/workflowDelivery";
 import { resolveRuntimeRequest } from "./runtime/router";
 import { landingHtml } from "./static/landing";
-import {
-  htmlNoPreviewHeaders,
-  isSocialPreviewCrawler,
-  socialPreviewNoContentResponse
-} from "./noPreview";
+import { htmlIndexableHeaders, platformSeoResponse } from "./seo";
 import { handleTailEvents } from "./logs";
 import { enforceCookiePolicy } from "./security";
 import {
@@ -90,11 +86,12 @@ app.all("*", async (c) => {
     return c.notFound();
   }
 
-  if (isSocialPreviewCrawler(c.req.raw)) return socialPreviewNoContentResponse();
+  const seoResponse = platformSeoResponse(c.req.raw, c.env);
+  if (seoResponse) return seoResponse;
 
   return new Response(c.req.method === "HEAD" ? null : landingHtml(), {
     status: 200,
-    headers: htmlNoPreviewHeaders()
+    headers: htmlIndexableHeaders()
   });
 });
 

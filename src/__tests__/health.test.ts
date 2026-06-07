@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { app } from "../worker";
 import { createTestEnv } from "./mocks";
-import { NO_PREVIEW_ROBOTS } from "../noPreview";
+import { LANDING_DESCRIPTION } from "../seo";
 
 const expectLandingHero = (body: string) => {
   expect(body).toMatch(/<section class="hero">[\s\S]*<h1>[\s\S]+<\/h1>/);
@@ -40,12 +40,14 @@ describe("landing page", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/html");
-    expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(response.headers.get("x-robots-tag")).toBe(NO_PREVIEW_ROBOTS);
-    expect(body).toContain(`<meta name="robots" content="${NO_PREVIEW_ROBOTS}" />`);
-    expect(body).toContain('<meta name="description" content="" />');
-    expect(body).not.toContain("og:");
-    expect(body).not.toContain("twitter:");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=300");
+    expect(response.headers.get("x-robots-tag")).toBeNull();
+    expect(body).toContain('<meta name="robots" content="index, follow" />');
+    expect(body).toContain(`<meta name="description" content="${LANDING_DESCRIPTION}" />`);
+    expect(body).toContain('<link rel="canonical" href="https://www.w7s.io/" />');
+    expect(body).toContain('<meta property="og:title" content="W7S Cloud" />');
+    expect(body).toContain('<meta name="twitter:card" content="summary" />');
+    expect(body).toContain('<script type="application/ld+json">');
     expect(body).toContain("<title>W7S Cloud</title>");
     expectLandingHero(body);
     expect(body).toContain("https://www.w7s.io/docs/");
@@ -68,7 +70,7 @@ describe("landing page", () => {
     expect(body).not.toContain("build-command");
   });
 
-  it("returns no content for social preview crawlers on the default page", async () => {
+  it("returns the indexable landing page for social preview crawlers on the default page", async () => {
     const response = await app.fetch(
       new Request("https://w7s.cloud/", {
         headers: {
@@ -77,11 +79,30 @@ describe("landing page", () => {
       }),
       createTestEnv()
     );
+    const body = await response.text();
 
-    expect(response.status).toBe(204);
-    expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(response.headers.get("x-robots-tag")).toBe(NO_PREVIEW_ROBOTS);
-    expect(await response.text()).toBe("");
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("public, max-age=300");
+    expect(response.headers.get("x-robots-tag")).toBeNull();
+    expect(body).toContain('<meta name="robots" content="index, follow" />');
+  });
+
+  it("serves platform robots and sitemap documents", async () => {
+    const env = createTestEnv({
+      APP_DEPLOYED_AT: "2026-05-23T19:31:42Z"
+    });
+
+    const robots = await app.fetch(new Request("https://w7s.cloud/robots.txt"), env);
+    expect(robots.status).toBe(200);
+    expect(robots.headers.get("content-type")).toContain("text/plain");
+    await expect(robots.text()).resolves.toContain("Sitemap: https://www.w7s.io/sitemap.xml");
+
+    const sitemap = await app.fetch(new Request("https://w7s.cloud/sitemap.xml"), env);
+    const sitemapBody = await sitemap.text();
+    expect(sitemap.status).toBe(200);
+    expect(sitemap.headers.get("content-type")).toContain("application/xml");
+    expect(sitemapBody).toContain("<loc>https://www.w7s.io/</loc>");
+    expect(sitemapBody).toContain("<lastmod>2026-05-23T19:31:42.000Z</lastmod>");
   });
 });
 

@@ -14,6 +14,7 @@ import {
   isSocialPreviewCrawler,
   socialPreviewNoContentResponse
 } from "../noPreview";
+import { deployPlaceholderSeoResponse } from "../seo";
 import { dispatchWorker } from "./dispatch";
 import { enforceAppNotSuspended, suspendAppForLimits } from "../appLimits";
 import { checkBlockedUsageLimit, costGuardExceededMessage } from "../usageEnforcement";
@@ -438,6 +439,9 @@ export const resolveRuntimeRequest = async (
   }
 
   if (host && shouldShowDeployShowcase(request)) {
+    const seoResponse = deployPlaceholderSeoResponse(request);
+    if (seoResponse) return seoResponse;
+
     const target = deployShowcaseTarget(request, requestHost, orgSlug);
     const response = deployShowcaseResponse(request, requestHost, orgSlug);
     const repoSlug = target.repository.split("/")[1] ?? orgSlug;

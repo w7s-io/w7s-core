@@ -469,6 +469,34 @@ describe("runtime router", () => {
     expect(await response.text()).toBe("");
   });
 
+  it("keeps undeployed app SEO discovery endpoints out of search", async () => {
+    const env = createTestEnv();
+
+    const robots = await app.fetch(
+      new Request("https://sadasant.w7s.cloud/robots.txt", {
+        headers: {
+          host: "sadasant.w7s.cloud"
+        }
+      }),
+      env
+    );
+    expect(robots.status).toBe(200);
+    expect(robots.headers.get("x-robots-tag")).toBe(NO_PREVIEW_ROBOTS);
+    expect(await robots.text()).toBe("User-agent: *\nDisallow: /\n");
+
+    const sitemap = await app.fetch(
+      new Request("https://sadasant.w7s.cloud/sitemap.xml", {
+        headers: {
+          host: "sadasant.w7s.cloud"
+        }
+      }),
+      env
+    );
+    expect(sitemap.status).toBe(404);
+    expect(sitemap.headers.get("x-robots-tag")).toBe(NO_PREVIEW_ROBOTS);
+    expect(await sitemap.text()).toBe("Sitemap not available.");
+  });
+
   it("shows contextual deploy help for missing repo-prefixed deployments", async () => {
     const env = createTestEnv();
 
