@@ -556,6 +556,10 @@ export const landingHtml = (target?: DeployShowcaseTarget) => `<!doctype html>
             <h3>Usage-aware by default</h3>
             <p>W7S tracks usage and reports quota pressure back to the repository through the deploy workflow.</p>
           </article>
+          <article class="hover-lift">
+            <h3>Agent-readable infra</h3>
+            <p>Agents can discover W7S capabilities and inspect deployed resources through read-only repo-authenticated APIs.</p>
+          </article>
         </section>
       </main>
       <footer class="legal-footer">

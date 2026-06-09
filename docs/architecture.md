@@ -55,6 +55,10 @@ Those can be rebuilt later as W7S-deployed apps/components on top of this core.
   - Keeps a stable low-cardinality schema for deploy, request, RPC, queue, schedule, and workflow events.
 - `src/api/logs.ts`
   - Authenticates GitHub repository access and reads recent user Worker console/exception logs from KV.
+- `src/api/agent.ts`
+  - Publishes `agent.json`, OpenAPI, and `w7s.json` schema discovery documents.
+  - Authenticates GitHub repository access for read-only agent inspection endpoints.
+  - Returns sanitized deployment, route, resource, observability link, and next-action state without exposing binding token hashes or secrets.
 - `src/logs.ts`
   - Implements the W7S `tail()` handler.
   - Maps Tail Worker script names back to deployed repositories and stores only mapped user Worker records.
@@ -211,6 +215,14 @@ Cloudflare scheduled event
   -> acquire a separate hourly Cloudflare usage lock
   -> sync direct resource analytics into usage_cf_hourly:v1:* records
   -> merge hourly usage into daily rollups and suspend exceeded apps
+```
+
+```text
+GET /api/v1/agent/repos/<owner>/<repo>
+  -> require GitHub bearer token
+  -> verify token can access owner/repo through GitHub
+  -> load deployment and managed resource records for the requested environment
+  -> return sanitized infrastructure state, capabilities, routes, observability links, and next actions
 ```
 
 ```text

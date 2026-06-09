@@ -21,6 +21,7 @@ This repo contains the public W7S worker, deploy API, runtime router, and storag
 - per-app daily usage rollups, hourly Cloudflare analytics sync, warning thresholds, app suspension, and hard daily limits are exposed through an authenticated usage API.
 - per-app platform analytics are exposed through an authenticated Analytics Engine query API when `W7S_ANALYTICS_DATASET` is configured.
 - user Worker `console.*` output and uncaught exceptions are captured through Tail Worker events and exposed through an authenticated logs API.
+- `agent.json` and authenticated `/api/v1/agent/repos/<owner>/<repo>` endpoints expose read-only machine-readable infrastructure state for agents.
 
 ## Deploy API
 

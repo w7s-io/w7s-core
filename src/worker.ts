@@ -10,6 +10,12 @@ import { handleLimitsGet } from "./api/limits";
 import { handleAnalyticsGet } from "./api/analytics";
 import { handleLogsGet } from "./api/logs";
 import { handleStatusGet, handleStatusOptions } from "./api/status";
+import {
+  handleAgentDiscoveryGet,
+  handleAgentManifestSchemaGet,
+  handleAgentOpenApiGet,
+  handleAgentRepoGet
+} from "./api/agent";
 import { json } from "./http";
 import { handleQueueBatch } from "./runtime/queueDelivery";
 import { handleScheduled } from "./runtime/scheduleDelivery";
@@ -48,6 +54,9 @@ app.get("/health", health);
 app.get("/api/v1/health", health);
 app.options("/api/v1/status", handleStatusOptions);
 app.get("/api/v1/status", handleStatusGet);
+app.get("/api/v1/agent/openapi.json", handleAgentOpenApiGet);
+app.get("/api/v1/agent/manifest-schema", handleAgentManifestSchemaGet);
+app.get("/api/v1/agent/repos/*", handleAgentRepoGet);
 
 app.post("/api/v1/deploy", async (c) => {
   const response = await handleDeploy(c);
@@ -84,6 +93,11 @@ app.all("*", async (c) => {
 
   if (c.req.method !== "GET" && c.req.method !== "HEAD") {
     return c.notFound();
+  }
+
+  const path = new URL(c.req.url).pathname;
+  if (path === "/agent.json" || path === "/.well-known/agent.json") {
+    return handleAgentDiscoveryGet(c);
   }
 
   const seoResponse = platformSeoResponse(c.req.raw, c.env);

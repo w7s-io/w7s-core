@@ -23,6 +23,8 @@ As of the latest docs update:
 - If `W7S_ANALYTICS_DATASET` is configured, the core writes Workers Analytics Engine datapoints for deploys, runtime requests, RPC, queues, schedules, and workflows.
 - `/api/v1/analytics/<owner>/<repo>` reads those Analytics Engine datapoints for authorized repo users.
 - Native user Worker uploads include a Tail Worker consumer pointing at W7S unless disabled; `/api/v1/logs/<owner>/<repo>` reads captured console, exception, and outcome records for authorized repo users.
+- `GET /agent.json`, `GET /.well-known/agent.json`, and `GET /api/v1/agent/openapi.json` expose a read-only machine-readable agent surface.
+- `GET /api/v1/agent/repos/<owner>/<repo>` and drill-down endpoints expose sanitized repository infrastructure state for authorized repo users.
 - The core stores per-app daily usage rollups in `DEPLOYMENTS_KV`, mirrors repo usage into owner/global aggregate rollups, syncs direct Cloudflare resource usage hourly, and exposes repo usage through `GET /api/v1/usage/<owner>/<repo>`.
 - Effective limit policies are exposed through `GET /api/v1/limits/<owner>/<repo>` and can be overridden only with W7S-owned KV policy records.
 - W7S operators can manage limit policy KV records with `npm run limits:get`, `npm run limits:set`, and `npm run limits:delete`.
@@ -71,6 +73,7 @@ The point of this repo is to keep the core deploy/routing plane small.
 - Queues currently use a low-level `env.W7S_QUEUE.fetch(...)` convention. There is no typed queue client package yet.
 - Workflows currently use a low-level `env.W7S_WORKFLOW.fetch(...)` convention. There is no typed workflow client package yet.
 - No rollback UI or deployment history API yet.
+- The Agent API is read-only. It does not mutate infrastructure; agents should propose `w7s.json` changes and redeploy through GitHub Actions.
 - The analytics API exposes recent platform events; the logs API exposes recent user Worker `console.*`/exception records.
 - Wildcard DNS is manual.
 

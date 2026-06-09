@@ -6,11 +6,12 @@ Start here:
 
 1. [Architecture](./architecture.md): what the core does and what it intentionally does not do.
 2. [Deploy API](./deploy-api.md): `POST /api/v1/deploy`, archive expectations, auth, and response shape.
-3. [Runtime Routing](./runtime-routing.md): how `https://<org>.w7s.cloud/<repo>/*` and same-name org root apps are resolved.
-4. [Cloudflare Operations](./cloudflare-ops.md): bindings, GitHub Actions, wildcard cutover, DNS, and required permissions.
-5. [Usage Accounting](./usage-accounting.md): per-app daily usage rollups, warning thresholds, and hard daily limits.
-6. [Development And Testing](./development-and-testing.md): local commands, `w7s-local`, tests, and safe change workflow.
-7. [Agent Handoff](./agent-handoff.md): current state, known limitations, and common next tasks.
+3. [Agent API](./agent-api.md): read-only agent discovery and repo infrastructure inspection.
+4. [Runtime Routing](./runtime-routing.md): how `https://<org>.w7s.cloud/<repo>/*` and same-name org root apps are resolved.
+5. [Cloudflare Operations](./cloudflare-ops.md): bindings, GitHub Actions, wildcard cutover, DNS, and required permissions.
+6. [Usage Accounting](./usage-accounting.md): per-app daily usage rollups, warning thresholds, and hard daily limits.
+7. [Development And Testing](./development-and-testing.md): local commands, `w7s-local`, tests, and safe change workflow.
+8. [Agent Handoff](./agent-handoff.md): current state, known limitations, and common next tasks.
 
 ## Current Model
 
@@ -30,6 +31,7 @@ Start here:
 - optional Workers Analytics Engine writes provide core platform observability when `W7S_ANALYTICS_DATASET` is configured.
 - authenticated analytics reads expose those platform events through `/api/v1/analytics/<owner>/<repo>`.
 - authenticated log reads expose user Worker `console.*` output and uncaught exceptions through `/api/v1/logs/<owner>/<repo>`.
+- read-only agent discovery and repo infrastructure inspection are exposed through `/agent.json` and `/api/v1/agent/repos/<owner>/<repo>`.
 - daily repo/owner/global usage rollups, hourly Cloudflare usage sync, app suspension state, short-window burst guards, and effective limit warnings are exposed through `GET /api/v1/usage/<owner>/<repo>`.
 - effective limit policies are exposed through `GET /api/v1/limits/<owner>/<repo>`.
 - optional Telegram manager notifications can report deploys, deploy warnings/errors, app suspensions, and usage collection failures when `W7S_TELEGRAM_BOT_TOKEN` and `W7S_TELEGRAM_CHAT_ID` are configured.

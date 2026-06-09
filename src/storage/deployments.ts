@@ -909,6 +909,46 @@ export const loadManagedResourceRecord = async (
   return record as ManagedResourceRecord;
 };
 
+export const listManagedResourceRecords = async (
+  env: Env,
+  environment: string,
+  orgSlug: string,
+  repoSlug: string
+) => {
+  const prefix = `resource:v1:${sanitizeScriptPart(environment)}:${sanitizeScriptPart(orgSlug)}:${sanitizeScriptPart(repoSlug)}:`;
+  const records: ManagedResourceRecord[] = [];
+  let cursor: string | undefined;
+  do {
+    const listed = await env.DEPLOYMENTS_KV.list({
+      prefix,
+      cursor
+    });
+    const loaded = await Promise.all(
+      listed.keys.map(async (entry) => {
+        const raw = await env.DEPLOYMENTS_KV.get(entry.name, "json");
+        if (!raw || typeof raw !== "object") return null;
+        const record = raw as Partial<ManagedResourceRecord>;
+        if (
+          record.version !== 1 ||
+          typeof record.kind !== "string" ||
+          typeof record.orgSlug !== "string" ||
+          typeof record.repoSlug !== "string" ||
+          typeof record.environment !== "string" ||
+          typeof record.binding !== "string" ||
+          typeof record.name !== "string" ||
+          typeof record.id !== "string"
+        ) {
+          return null;
+        }
+        return record as ManagedResourceRecord;
+      })
+    );
+    records.push(...loaded.filter((record): record is ManagedResourceRecord => Boolean(record)));
+    cursor = listed.list_complete ? undefined : listed.cursor;
+  } while (cursor);
+  return records;
+};
+
 export const storeStaticSiteManifest = async (
   env: Env,
   manifest: StaticSiteManifest
