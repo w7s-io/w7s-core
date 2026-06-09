@@ -576,6 +576,7 @@ const deployStatusMessage = (body: JsonRecord, request: Request) => {
     stringValue(deployment?.commitSha) ??
     stringValue(github?.commitSha) ??
     request.headers.get("x-github-sha")?.trim();
+  const commitMessage = stringValue(github?.commitMessage)?.split(/\r?\n/)[0]?.trim();
   const runUrl = stringValue(github?.runUrl);
   const url = stringValue(body.url);
   const error = stringValue(body.error);
@@ -585,6 +586,7 @@ const deployStatusMessage = (body: JsonRecord, request: Request) => {
     telegramField("Environment", environment),
     telegramField("Branch", branch),
     telegramField("Commit", shortSha(commitSha) ?? "unknown"),
+    ...(commitMessage ? [telegramPlainField("Commit message", commitMessage)] : []),
     ...(httpStatus ? [telegramField("Status", `HTTP ${httpStatus}`)] : []),
     ...(url ? [telegramField("URL", url)] : []),
     ...(warningCount ? [telegramField("Warnings", String(warningCount))] : []),

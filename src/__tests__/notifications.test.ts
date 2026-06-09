@@ -289,6 +289,7 @@ describe("Telegram notifications", () => {
             repository: "w7s-io/demo",
             branch: "main",
             commitSha: "abcdef1234567890",
+            commitMessage: "Add deploy status detail\n\nLong body should stay out",
             runUrl: "https://github.com/w7s-io/demo/actions/runs/123"
           }
         })
@@ -309,6 +310,8 @@ describe("Telegram notifications", () => {
     expect(telegramBodies[0]?.parse_mode).toBe("MarkdownV2");
     expect(telegramBodies[0]?.text).toContain("*W7S Deployment started*");
     expect(telegramBodies[0]?.text).toContain("*Repository:* `w7s-io/demo`");
+    expect(telegramBodies[0]?.text).toContain("*Commit message:* Add deploy status detail");
+    expect(telegramBodies[0]?.text).not.toContain("Long body should stay out");
   });
 
   it("edits the subscriber deployment status message when a message id is provided", async () => {
