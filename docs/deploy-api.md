@@ -220,7 +220,7 @@ Example:
 
 Managed storage is scoped to `<environment>/<owner>/<repo>/<binding>`, so redeploys reuse durable resources while non-production branches get separate resources.
 
-`routing.defaultDomain` controls whether the deployment is served from the default `*.w7s.cloud` URL. It defaults to `true`. Set it to `false` when the app should only be reachable through a custom domain declared in `CNAME`:
+`routing.defaultDomain` controls whether a `main` branch deployment is served from the default `*.w7s.cloud` URL. It defaults to `true`. Set it to `false` when the app should only be reachable through a custom domain declared in `CNAME`:
 
 ```json
 {
@@ -230,7 +230,7 @@ Managed storage is scoped to `<environment>/<owner>/<repo>/<binding>`, so redepl
 }
 ```
 
-When `routing.defaultDomain` is `false`, the archive must include a `CNAME` file and at least one custom domain must attach successfully. If the `CNAME` claim is missing or blocked, the deploy fails instead of publishing a default `w7s.cloud` URL.
+When `routing.defaultDomain` is `false` on `main`, the archive must include a `CNAME` file and at least one custom domain must attach successfully. If the `CNAME` claim is missing or blocked, the deploy fails instead of publishing a default `w7s.cloud` URL. Non-`main` branch deploys ignore `CNAME` declarations and remain reachable from their default branch environment URL.
 
 D1 migrations are read from the configured migrations directory, sorted by filename, and applied once. W7S tracks applied migration filenames in `_w7s_migrations` inside the app database.
 
@@ -324,7 +324,7 @@ The `CNAME` file should contain one hostname, for example:
 whereis.carlosguerrero.com
 ```
 
-W7S reads root `CNAME` first, then static-output and legacy `frontend` CNAME paths. It stores a host mapping in KV and attaches a Cloudflare Worker route for `<hostname>/*` when the domain's Cloudflare zone is available to the W7S API token. The actual DNS record still has to resolve to Cloudflare. For a typical proxied Cloudflare zone, create a `CNAME` record for the host that points at `w7s.cloud`.
+W7S reads root `CNAME` first, then static-output and legacy `frontend` CNAME paths, but only honors those declarations on the `main` branch. For `main` deploys, it stores a host mapping in KV and attaches a Cloudflare Worker route for `<hostname>/*` when the domain's Cloudflare zone is available to the W7S API token. The actual DNS record still has to resolve to Cloudflare. For a typical proxied Cloudflare zone, create a `CNAME` record for the host that points at `w7s.cloud`.
 
 Custom-domain ownership is intentionally low-friction:
 

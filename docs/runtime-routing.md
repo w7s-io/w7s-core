@@ -106,7 +106,7 @@ points at:
 https://github.com/sadasant/example
 ```
 
-Custom domains are resolved from KV mappings created during deploy from `CNAME` or supported legacy/static-output CNAME paths. A custom hostname routes directly to its mapped deployment without a repo prefix:
+Custom domains are resolved from KV mappings created during `main` branch deploys from `CNAME` or supported legacy/static-output CNAME paths. Non-`main` branch deploys ignore `CNAME` declarations. A custom hostname routes directly to its mapped deployment without a repo prefix:
 
 ```text
 https://whereis.carlosguerrero.com/
@@ -114,7 +114,7 @@ https://whereis.carlosguerrero.com/api/profile
 https://whereis.carlosguerrero.com/assets/app.js
 ```
 
-Deploy-time custom-domain claims are soft-verified. Any repo can claim a hostname without TXT, and the latest deployment replaces previous unverified claims. W7S warns the caller to add `_w7s.<zone>`. If that TXT exists, it must list the GitHub owner or exact repo, for example `guerrerocarlos` or `guerrerocarlos/whereis`; TXT authorization then decides whether ownership can move.
+Deploy-time custom-domain claims are soft-verified on the `main` branch. Any repo can claim a hostname without TXT, and the latest `main` deployment replaces previous unverified claims. W7S warns the caller to add `_w7s.<zone>`. If that TXT exists, it must list the GitHub owner or exact repo, for example `guerrerocarlos` or `guerrerocarlos/whereis`; TXT authorization then decides whether ownership can move.
 
 Deployments can opt out of default `*.w7s.cloud` routing in `w7s.json`:
 
@@ -126,7 +126,7 @@ Deployments can opt out of default `*.w7s.cloud` routing in `w7s.json`:
 }
 ```
 
-When disabled, the deployment only serves through attached custom domains from `CNAME`. Requests to the default `w7s.cloud` route behave as if that deployment is not present.
+When disabled on `main`, the deployment only serves through attached custom domains from `CNAME`. Requests to the default `w7s.cloud` route behave as if that deployment is not present. Non-`main` branch deploys ignore `CNAME` and keep their default branch environment URL.
 
 Reserved platform paths:
 

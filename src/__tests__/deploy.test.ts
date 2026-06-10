@@ -71,11 +71,12 @@ const stubCustomDomainFetch = (params: {
 const existingDeploymentRecord = (params: {
   orgSlug: string;
   repoSlug: string;
+  environment?: string;
 }): DeploymentRecord => ({
   version: 1,
   orgSlug: params.orgSlug,
   repoSlug: params.repoSlug,
-  environment: "production",
+  environment: params.environment ?? "production",
   repository: `${params.orgSlug}/${params.repoSlug}`,
   branch: "main",
   commitSha: "previous",
@@ -435,6 +436,146 @@ describe("deploy API", () => {
     expect(record?.customDomains).toEqual(["whereis.carlosguerrero.com"]);
     const mapping = await loadCustomDomainMapping(env, "whereis.carlosguerrero.com");
     expect(mapping?.repoSlug).toBe("whereis");
+  });
+
+  it("ignores CNAME custom domains on non-main branches", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith("https://api.github.com/repos/")) {
+          return Response.json({ full_name: "guerrerocarlos/whereis" });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      })
+    );
+    const env = createTestEnv({
+      CLOUDFLARE_API_TOKEN: "cf-token"
+    });
+    const response = await app.fetch(
+      deployRequest(
+        {
+          "CNAME": "whereis.carlosguerrero.com\n",
+          "w7s.json": JSON.stringify({
+            routing: {
+              defaultDomain: false
+            }
+          }),
+          "dist/client/index.html": "<h1>Hello</h1>"
+        },
+        {
+          "x-github-repository": "guerrerocarlos/whereis",
+          "x-github-branch": "feature/custom-domain"
+        }
+      ),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as {
+      data?: {
+        url?: string;
+        deployment?: DeploymentRecord;
+        customDomains?: string[];
+        deploymentWarnings?: Array<{ code?: string; requiredBranch?: string }>;
+      };
+    };
+    expect(body.data?.url).toBe("https://feature-custom-domain--guerrerocarlos.w7s.cloud/whereis/");
+    expect(body.data?.customDomains).toBeUndefined();
+    expect(body.data?.deployment?.customDomains).toBeUndefined();
+    expect(body.data?.deployment?.routing).toBeUndefined();
+    expect(body.data?.deploymentWarnings).toEqual([
+      expect.objectContaining({
+        code: "custom_domains_skipped_non_main",
+        requiredBranch: "main"
+      })
+    ]);
+    await expect(loadCustomDomainMapping(env, "whereis.carlosguerrero.com")).resolves.toBeNull();
+  });
+
+  it("does not remove existing custom domain mappings from non-main deploys", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith("https://api.github.com/repos/")) {
+          return Response.json({ full_name: "guerrerocarlos/whereis" });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      })
+    );
+    const env = createTestEnv({
+      CLOUDFLARE_API_TOKEN: "cf-token"
+    });
+    await storeCustomDomainMappings(
+      env,
+      existingDeploymentRecord({ orgSlug: "guerrerocarlos", repoSlug: "whereis" }),
+      ["whereis.carlosguerrero.com"]
+    );
+
+    const response = await app.fetch(
+      deployRequest(
+        {
+          "dist/client/index.html": "<h1>Hello from a branch</h1>"
+        },
+        {
+          "x-github-repository": "guerrerocarlos/whereis",
+          "x-github-branch": "feature/custom-domain",
+          "x-w7s-environment": "production"
+        }
+      ),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    await expect(loadCustomDomainMapping(env, "whereis.carlosguerrero.com")).resolves.toEqual(
+      expect.objectContaining({
+        orgSlug: "guerrerocarlos",
+        repoSlug: "whereis",
+        deployedAt: "2026-05-23T00:00:00.000Z"
+      })
+    );
+  });
+
+  it("removes stale custom domain mappings from non-main branch environments", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith("https://api.github.com/repos/")) {
+          return Response.json({ full_name: "guerrerocarlos/whereis" });
+        }
+        throw new Error(`Unexpected fetch: ${url}`);
+      })
+    );
+    const env = createTestEnv({
+      CLOUDFLARE_API_TOKEN: "cf-token"
+    });
+    await storeCustomDomainMappings(
+      env,
+      existingDeploymentRecord({
+        orgSlug: "guerrerocarlos",
+        repoSlug: "whereis",
+        environment: "feature-custom-domain"
+      }),
+      ["whereis.carlosguerrero.com"]
+    );
+
+    const response = await app.fetch(
+      deployRequest(
+        {
+          "dist/client/index.html": "<h1>Hello from a branch</h1>"
+        },
+        {
+          "x-github-repository": "guerrerocarlos/whereis",
+          "x-github-branch": "feature/custom-domain"
+        }
+      ),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    await expect(loadCustomDomainMapping(env, "whereis.carlosguerrero.com")).resolves.toBeNull();
   });
 
   it("stores deployments that disable the default domain when a custom domain attaches", async () => {

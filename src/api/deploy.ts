@@ -38,6 +38,7 @@ import { generateBindingToken, hashBindingToken } from "../deploy/tokens";
 import { provisionAppQueues } from "../deploy/queueProvisioner";
 import {
   attachCustomDomainRoutes,
+  hasCustomDomainDeclaration,
   planCustomDomainClaims,
   readCustomDomains
 } from "../deploy/customDomains";
@@ -59,7 +60,15 @@ type DeployWarning = {
   target: string;
   message: string;
   requiredEntrypoints: string[];
+} | {
+  code: "custom_domains_skipped_non_main";
+  target: "CNAME";
+  message: string;
+  branch: string;
+  requiredBranch: "main";
 };
+
+const CUSTOM_DOMAIN_BRANCH = "main";
 
 const readHeader = (c: HonoContext, name: string) => c.req.header(name)?.trim() ?? "";
 
@@ -121,6 +130,14 @@ const nativeBackendSkippedWarning = (roots: string[]): DeployWarning => {
     requiredEntrypoints: [...ENTRYPOINT_CANDIDATES]
   };
 };
+
+const customDomainsSkippedWarning = (branch: string): DeployWarning => ({
+  code: "custom_domains_skipped_non_main",
+  target: "CNAME",
+  branch,
+  requiredBranch: CUSTOM_DOMAIN_BRANCH,
+  message: `CNAME custom domains are only attached from the ${CUSTOM_DOMAIN_BRANCH} branch. This deployment will use its default W7S URL.`
+});
 
 export const handleDeploy = async (c: HonoContext) => {
   const token = parseBearerToken(c.req.raw);
@@ -216,12 +233,22 @@ export const handleDeploy = async (c: HonoContext) => {
     allowAssetOnly: hasNativeBackend
   });
   const deploymentWarnings: DeployWarning[] = [];
+  const customDomainsEnabled = branch.trim() === CUSTOM_DOMAIN_BRANCH;
+  const hasCnameDeclaration = hasCustomDomainDeclaration(archive);
   let customDomains: string[];
-  try {
-    customDomains = readCustomDomains(archive);
-  } catch (error) {
-    return jsonError(error instanceof Error ? error.message : String(error), 400);
+  if (customDomainsEnabled) {
+    try {
+      customDomains = readCustomDomains(archive);
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : String(error), 400);
+    }
+  } else {
+    customDomains = [];
+    if (hasCnameDeclaration) {
+      deploymentWarnings.push(customDomainsSkippedWarning(branch));
+    }
   }
+  const defaultDomainEnabled = customDomainsEnabled ? appManifest.routing.defaultDomain : true;
   if (!hasNativeBackend && !hasStatic) {
     if (hasNativeRoot) return jsonError(nativeEntrypointError(), 400);
     return jsonError("Archive must contain worker/, backend/, dist/server/, or static frontend output.", 400);
@@ -229,7 +256,7 @@ export const handleDeploy = async (c: HonoContext) => {
   if (hasNativeRoot && !hasNativeBackend && hasStatic) {
     deploymentWarnings.push(nativeBackendSkippedWarning(nativeRoots));
   }
-  if (!appManifest.routing.defaultDomain && customDomains.length === 0) {
+  if (!defaultDomainEnabled && customDomains.length === 0) {
     return jsonError("routing.defaultDomain=false requires at least one hostname in a CNAME file.", 400);
   }
   if (!hasNativeBackend && appManifest.queues.length > 0) {
@@ -405,7 +432,7 @@ export const handleDeploy = async (c: HonoContext) => {
     return jsonError(error instanceof Error ? error.message : String(error), 500);
   }
 
-  if (!appManifest.routing.defaultDomain && attachedCustomDomains.length === 0) {
+  if (!defaultDomainEnabled && attachedCustomDomains.length === 0) {
     await refundBillingReservation(c.env, billingReservation as BillingReservation | null);
     return jsonError("routing.defaultDomain=false requires an attached custom domain.", 400, {
       blockedCustomDomains
@@ -422,7 +449,7 @@ export const handleDeploy = async (c: HonoContext) => {
     commitSha,
     deployedAt,
     ...(attachedCustomDomains.length > 0 ? { customDomains: attachedCustomDomains } : {}),
-    ...(appManifest.routing.defaultDomain === false
+    ...(!defaultDomainEnabled
       ? { routing: { defaultDomain: false } }
       : {}),
     ...(deploymentBindings ? { bindings: deploymentBindings } : {}),
@@ -434,7 +461,9 @@ export const handleDeploy = async (c: HonoContext) => {
     targets
   };
   await storeDeploymentRecord(c.env, record);
-  await replaceCustomDomainMappings(c.env, record, attachedCustomDomains);
+  if (customDomainsEnabled || environment !== "production") {
+    await replaceCustomDomainMappings(c.env, record, attachedCustomDomains);
+  }
   await replaceQueueMappings(c.env, record, record.queue?.queues ?? []);
   await replaceScheduleMappings(c.env, record, record.schedules ?? []);
   if (attachedCustomDomains.length > 0) {

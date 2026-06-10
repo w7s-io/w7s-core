@@ -74,6 +74,9 @@ export const readCustomDomains = (archive: DeployArchive) => {
   return [...hostnames];
 };
 
+export const hasCustomDomainDeclaration = (archive: DeployArchive) =>
+  CNAME_PATHS.some((path) => Boolean(readTextFile(archive, path)?.trim()));
+
 const cfRequest = async (env: Env, method: string, path: string, body?: unknown) => {
   if (!env.CLOUDFLARE_API_TOKEN) {
     throw new Error("CLOUDFLARE_API_TOKEN is required to attach custom domains.");
