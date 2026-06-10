@@ -16,7 +16,7 @@ This repo contains the public W7S worker, deploy API, runtime router, and storag
 - static frontend assets publish to R2 and are served from `https://<org>.w7s.cloud/<repo>/*`.
 - same-name repos such as `github.com/<org>/<org>` can serve directly from `https://<org>.w7s.cloud/*`.
 - non-production branches serve from `https://<branch>--<org>.w7s.cloud/<repo>/*`.
-- `CNAME` can declare custom domains for `main` branch deployments, with optional `_w7s.<zone>` TXT allowlists for ownership control.
+- `CNAME` can declare custom domains, with optional `_w7s.<zone>` TXT allowlists for ownership control. The `main` branch uses the declared hostname; other branches use `<branch>--<hostname>`.
 - optional Workers Analytics Engine writes track deploy, request, RPC, queue, schedule, and workflow events for platform observability.
 - per-app daily usage rollups, hourly Cloudflare analytics sync, warning thresholds, app suspension, and hard daily limits are exposed through an authenticated usage API.
 - per-app platform analytics are exposed through an authenticated Analytics Engine query API when `W7S_ANALYTICS_DATASET` is configured.
@@ -302,6 +302,6 @@ Wildcard DNS is intentionally managed manually. Before enabling the wildcard Wor
 - Target: `w7s.cloud`
 - Proxy status: proxied
 
-Custom-domain DNS is also manual. A root `CNAME` file on the `main` branch can claim `app.example.com`; create DNS pointing that host to `w7s.cloud`. Add TXT `_w7s.example.com` with values like `owner` or `owner/repo` to restrict which GitHub repos can use hostnames on that zone. Non-`main` branch deploys ignore `CNAME` and continue to use their default W7S URL.
+Custom-domain DNS is also manual. A root `CNAME` file can claim `app.example.com`; create DNS pointing that host to `w7s.cloud`. Add DNS for branch-prefixed hosts such as `dev--app.example.com` when those branch custom domains should resolve. Add TXT `_w7s.example.com` with values like `owner` or `owner/repo` to restrict which GitHub repos can use hostnames on that zone. The `main` branch uses `app.example.com`; a branch such as `dev` uses `dev--app.example.com`.
 
-Apps can opt out of the default `*.w7s.cloud` route on `main` by adding `routing.defaultDomain=false` to `w7s.json`. This requires a successfully attached `CNAME` custom domain and makes the app serve only from that custom hostname.
+Apps can opt out of the default `*.w7s.cloud` route by adding `routing.defaultDomain=false` to `w7s.json`. This requires a successfully attached `CNAME` custom domain and makes the app serve only from that custom hostname.

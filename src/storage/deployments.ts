@@ -627,9 +627,11 @@ export const storeCustomDomainMappings = async (
 export const replaceCustomDomainMappings = async (
   env: Env,
   record: DeploymentRecord,
-  hostnames: string[]
+  hostnames: string[],
+  options: { staleHostnamePrefix?: string } = {}
 ) => {
   const wanted = new Set(hostnames.map((hostname) => hostname.trim().toLowerCase()));
+  const staleHostnamePrefix = options.staleHostnamePrefix?.trim().toLowerCase();
   let cursor: string | undefined;
   do {
     const listed = await env.DEPLOYMENTS_KV.list({
@@ -647,7 +649,8 @@ export const replaceCustomDomainMappings = async (
           mapping.repoSlug !== record.repoSlug ||
           mapping.environment !== record.environment ||
           !mapping.hostname ||
-          wanted.has(mapping.hostname)
+          wanted.has(mapping.hostname) ||
+          (staleHostnamePrefix && !mapping.hostname.startsWith(staleHostnamePrefix))
         ) {
           return;
         }

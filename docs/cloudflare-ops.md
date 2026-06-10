@@ -154,7 +154,7 @@ curl: (6) Could not resolve host: <org>.w7s.cloud
 
 ## App Custom Domains
 
-Deploy archives can declare one custom domain in a root `CNAME` file. W7S only honors `CNAME` custom-domain claims from the `main` branch; non-`main` branch deploys ignore them and keep using their default W7S URL.
+Deploy archives can declare one custom domain in a root `CNAME` file. The `main` branch uses the declared hostname exactly; non-`main` branches prefix the sanitized branch name, so branch `dev` with `app.example.com` attaches `dev--app.example.com`. DNS is still manual for both the production hostname and any branch-prefixed hostnames.
 
 ```text
 CNAME
@@ -177,7 +177,7 @@ Example file content:
 whereis.carlosguerrero.com
 ```
 
-During a `main` branch deploy, W7S:
+During deploy, W7S:
 
 1. validates the hostname;
 2. finds the matching Cloudflare zone available to the W7S token;

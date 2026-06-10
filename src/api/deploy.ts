@@ -38,7 +38,7 @@ import { generateBindingToken, hashBindingToken } from "../deploy/tokens";
 import { provisionAppQueues } from "../deploy/queueProvisioner";
 import {
   attachCustomDomainRoutes,
-  hasCustomDomainDeclaration,
+  branchCustomDomain,
   planCustomDomainClaims,
   readCustomDomains
 } from "../deploy/customDomains";
@@ -60,12 +60,6 @@ type DeployWarning = {
   target: string;
   message: string;
   requiredEntrypoints: string[];
-} | {
-  code: "custom_domains_skipped_non_main";
-  target: "CNAME";
-  message: string;
-  branch: string;
-  requiredBranch: "main";
 };
 
 const CUSTOM_DOMAIN_BRANCH = "main";
@@ -130,14 +124,6 @@ const nativeBackendSkippedWarning = (roots: string[]): DeployWarning => {
     requiredEntrypoints: [...ENTRYPOINT_CANDIDATES]
   };
 };
-
-const customDomainsSkippedWarning = (branch: string): DeployWarning => ({
-  code: "custom_domains_skipped_non_main",
-  target: "CNAME",
-  branch,
-  requiredBranch: CUSTOM_DOMAIN_BRANCH,
-  message: `CNAME custom domains are only attached from the ${CUSTOM_DOMAIN_BRANCH} branch. This deployment will use its default W7S URL.`
-});
 
 export const handleDeploy = async (c: HonoContext) => {
   const token = parseBearerToken(c.req.raw);
@@ -234,21 +220,17 @@ export const handleDeploy = async (c: HonoContext) => {
   });
   const deploymentWarnings: DeployWarning[] = [];
   const customDomainsEnabled = branch.trim() === CUSTOM_DOMAIN_BRANCH;
-  const hasCnameDeclaration = hasCustomDomainDeclaration(archive);
+  const branchCustomDomainPrefix = sanitizeScriptPart(branch);
   let customDomains: string[];
-  if (customDomainsEnabled) {
-    try {
-      customDomains = readCustomDomains(archive);
-    } catch (error) {
-      return jsonError(error instanceof Error ? error.message : String(error), 400);
-    }
-  } else {
-    customDomains = [];
-    if (hasCnameDeclaration) {
-      deploymentWarnings.push(customDomainsSkippedWarning(branch));
-    }
+  try {
+    const declaredCustomDomains = readCustomDomains(archive);
+    customDomains = customDomainsEnabled
+      ? declaredCustomDomains
+      : declaredCustomDomains.map((hostname) => branchCustomDomain(hostname, branchCustomDomainPrefix));
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : String(error), 400);
   }
-  const defaultDomainEnabled = customDomainsEnabled ? appManifest.routing.defaultDomain : true;
+  const defaultDomainEnabled = appManifest.routing.defaultDomain;
   if (!hasNativeBackend && !hasStatic) {
     if (hasNativeRoot) return jsonError(nativeEntrypointError(), 400);
     return jsonError("Archive must contain worker/, backend/, dist/server/, or static frontend output.", 400);
@@ -461,8 +443,12 @@ export const handleDeploy = async (c: HonoContext) => {
     targets
   };
   await storeDeploymentRecord(c.env, record);
-  if (customDomainsEnabled || environment !== "production") {
+  if (customDomainsEnabled) {
     await replaceCustomDomainMappings(c.env, record, attachedCustomDomains);
+  } else {
+    await replaceCustomDomainMappings(c.env, record, attachedCustomDomains, {
+      staleHostnamePrefix: `${branchCustomDomainPrefix}--`
+    });
   }
   await replaceQueueMappings(c.env, record, record.queue?.queues ?? []);
   await replaceScheduleMappings(c.env, record, record.schedules ?? []);

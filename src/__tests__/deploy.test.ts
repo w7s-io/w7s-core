@@ -438,17 +438,8 @@ describe("deploy API", () => {
     expect(mapping?.repoSlug).toBe("whereis");
   });
 
-  it("ignores CNAME custom domains on non-main branches", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo | URL) => {
-        const url = String(input);
-        if (url.startsWith("https://api.github.com/repos/")) {
-          return Response.json({ full_name: "guerrerocarlos/whereis" });
-        }
-        throw new Error(`Unexpected fetch: ${url}`);
-      })
-    );
+  it("attaches branch-prefixed custom domains on non-main branches", async () => {
+    vi.stubGlobal("fetch", stubCustomDomainFetch({ repository: "guerrerocarlos/whereis" }));
     const env = createTestEnv({
       CLOUDFLARE_API_TOKEN: "cf-token"
     });
@@ -477,20 +468,30 @@ describe("deploy API", () => {
         url?: string;
         deployment?: DeploymentRecord;
         customDomains?: string[];
-        deploymentWarnings?: Array<{ code?: string; requiredBranch?: string }>;
+        customDomainWarnings?: Array<{ hostname?: string; txtName?: string; txtValue?: string }>;
+        deploymentWarnings?: unknown[];
       };
     };
-    expect(body.data?.url).toBe("https://feature-custom-domain--guerrerocarlos.w7s.cloud/whereis/");
-    expect(body.data?.customDomains).toBeUndefined();
-    expect(body.data?.deployment?.customDomains).toBeUndefined();
-    expect(body.data?.deployment?.routing).toBeUndefined();
-    expect(body.data?.deploymentWarnings).toEqual([
+    expect(body.data?.url).toBe("https://feature-custom-domain--whereis.carlosguerrero.com/");
+    expect(body.data?.customDomains).toEqual(["feature-custom-domain--whereis.carlosguerrero.com"]);
+    expect(body.data?.deployment?.customDomains).toEqual(["feature-custom-domain--whereis.carlosguerrero.com"]);
+    expect(body.data?.deployment?.routing).toEqual({ defaultDomain: false });
+    expect(body.data?.customDomainWarnings).toEqual([
       expect.objectContaining({
-        code: "custom_domains_skipped_non_main",
-        requiredBranch: "main"
+        hostname: "feature-custom-domain--whereis.carlosguerrero.com",
+        txtName: "_w7s.carlosguerrero.com",
+        txtValue: "guerrerocarlos/whereis"
       })
     ]);
+    expect(body.data?.deploymentWarnings).toBeUndefined();
     await expect(loadCustomDomainMapping(env, "whereis.carlosguerrero.com")).resolves.toBeNull();
+    await expect(loadCustomDomainMapping(env, "feature-custom-domain--whereis.carlosguerrero.com")).resolves.toEqual(
+      expect.objectContaining({
+        orgSlug: "guerrerocarlos",
+        repoSlug: "whereis",
+        environment: "feature-custom-domain"
+      })
+    );
   });
 
   it("does not remove existing custom domain mappings from non-main deploys", async () => {
@@ -558,7 +559,7 @@ describe("deploy API", () => {
         repoSlug: "whereis",
         environment: "feature-custom-domain"
       }),
-      ["whereis.carlosguerrero.com"]
+      ["feature-custom-domain--whereis.carlosguerrero.com"]
     );
 
     const response = await app.fetch(
@@ -575,7 +576,7 @@ describe("deploy API", () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(loadCustomDomainMapping(env, "whereis.carlosguerrero.com")).resolves.toBeNull();
+    await expect(loadCustomDomainMapping(env, "feature-custom-domain--whereis.carlosguerrero.com")).resolves.toBeNull();
   });
 
   it("stores deployments that disable the default domain when a custom domain attaches", async () => {

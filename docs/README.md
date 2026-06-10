@@ -27,7 +27,7 @@ Start here:
 - public repo apps are routed as `https://<org>.w7s.cloud/<repo>/*`;
 - same-name repos such as `github.com/<org>/<org>` can also serve `https://<org>.w7s.cloud/*`.
 - empty org roots such as `https://sadasant.w7s.cloud/` show deploy-help HTML;
-- custom domains can be declared with `CNAME` on the `main` branch when DNS is managed separately, with optional `_w7s.<zone>` TXT allowlists for ownership control.
+- custom domains can be declared with `CNAME` when DNS is managed separately, with optional `_w7s.<zone>` TXT allowlists for ownership control. Branch deploys derive `<branch>--<hostname>` from the declared hostname.
 - optional Workers Analytics Engine writes provide core platform observability when `W7S_ANALYTICS_DATASET` is configured.
 - authenticated analytics reads expose those platform events through `/api/v1/analytics/<owner>/<repo>`.
 - authenticated log reads expose user Worker `console.*` output and uncaught exceptions through `/api/v1/logs/<owner>/<repo>`.

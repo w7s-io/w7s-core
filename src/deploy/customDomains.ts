@@ -74,8 +74,20 @@ export const readCustomDomains = (archive: DeployArchive) => {
   return [...hostnames];
 };
 
-export const hasCustomDomainDeclaration = (archive: DeployArchive) =>
-  CNAME_PATHS.some((path) => Boolean(readTextFile(archive, path)?.trim()));
+export const branchCustomDomain = (hostname: string, branchPrefix: string) => {
+  const prefix = branchPrefix.trim().toLowerCase();
+  const labels = hostname.split(".");
+  const firstLabel = labels[0];
+  if (!prefix || !firstLabel) {
+    throw new Error(`Invalid branch custom domain for ${hostname}.`);
+  }
+  labels[0] = `${prefix}--${firstLabel}`;
+  const candidate = labels.join(".");
+  if (!HOSTNAME_PATTERN.test(candidate)) {
+    throw new Error(`Invalid branch custom domain ${candidate} derived from CNAME file.`);
+  }
+  return candidate;
+};
 
 const cfRequest = async (env: Env, method: string, path: string, body?: unknown) => {
   if (!env.CLOUDFLARE_API_TOKEN) {
