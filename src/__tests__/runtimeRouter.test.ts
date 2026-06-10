@@ -645,6 +645,79 @@ describe("runtime router", () => {
     expect(await assetResponse.text()).toContain("whereis");
   });
 
+  it("routes platform-looking custom domain paths to the deployment", async () => {
+    const env = createTestEnv({
+      APP_COMMIT_ID: "platform",
+      APP_DEPLOY_BRANCH: "main",
+      APP_DEPLOYED_AT: "2026-06-10T00:00:00Z"
+    });
+    const record = await storeStaticDeployment(env, {
+      orgSlug: "guerrerocarlos",
+      repoSlug: "invoices",
+      files: {
+        "health": {
+          body: '{"status":"app"}',
+          contentType: "application/json; charset=utf-8"
+        },
+        "api/v1/status": {
+          body: '{"status":"app-api"}',
+          contentType: "application/json; charset=utf-8"
+        }
+      }
+    });
+    await storeCustomDomainMappings(env, record, ["www.invoices-templates.com"]);
+
+    const healthResponse = await app.fetch(
+      new Request("https://www.invoices-templates.com/health", {
+        headers: {
+          host: "www.invoices-templates.com"
+        }
+      }),
+      env
+    );
+    const statusResponse = await app.fetch(
+      new Request("https://www.invoices-templates.com/api/v1/status", {
+        headers: {
+          host: "www.invoices-templates.com"
+        }
+      }),
+      env
+    );
+
+    expect(healthResponse.status).toBe(200);
+    await expect(healthResponse.json()).resolves.toEqual({ status: "app" });
+    expect(statusResponse.status).toBe(200);
+    await expect(statusResponse.json()).resolves.toEqual({ status: "app-api" });
+  });
+
+  it("does not fall through to platform handlers for unmapped app paths on custom domains", async () => {
+    const env = createTestEnv();
+    const record = await storeStaticDeployment(env, {
+      orgSlug: "guerrerocarlos",
+      repoSlug: "invoices",
+      files: {
+        "index.html": {
+          body: "<h1>Invoices</h1>",
+          contentType: "text/html; charset=utf-8"
+        }
+      }
+    });
+    await storeCustomDomainMappings(env, record, ["www.invoices-templates.com"]);
+
+    const response = await app.fetch(
+      new Request("https://www.invoices-templates.com/api/v1/deploy", {
+        method: "POST",
+        headers: {
+          host: "www.invoices-templates.com"
+        }
+      }),
+      env
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.text()).resolves.toBe("Not found.");
+  });
+
   it("does not serve default domains when deployment routing disables them", async () => {
     const env = createTestEnv();
     const record = await storeStaticDeployment(env, {

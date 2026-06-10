@@ -25,6 +25,8 @@ import { landingHtml } from "./static/landing";
 import { htmlIndexableHeaders, platformSeoResponse } from "./seo";
 import { handleTailEvents } from "./logs";
 import { enforceCookiePolicy } from "./security";
+import { loadCustomDomainMapping } from "./storage/deployments";
+import { cleanHost, getBaseDomain, resolveRuntimeHost } from "./runtime/host";
 import {
   handleDeployStatus,
   handleTelegramWebhook,
@@ -36,9 +38,37 @@ export { W7SWorkflow };
 
 export const app = new Hono<{ Bindings: Env }>();
 
+function optionalExecutionCtx(c: Context<{ Bindings: Env }>) {
+  try {
+    return c.executionCtx;
+  } catch {
+    return undefined;
+  }
+}
+
+const resolveCustomDomainRuntimeRequest = async (c: Context<{ Bindings: Env }>) => {
+  const request = c.req.raw;
+  const url = new URL(request.url);
+  const host = cleanHost(request.headers.get("host") || url.host);
+  if (host === getBaseDomain(c.env) || resolveRuntimeHost(request, c.env)) return null;
+
+  const customDomain = await loadCustomDomainMapping(c.env, host);
+  if (!customDomain) return null;
+
+  return (
+    await resolveRuntimeRequest(request, c.env, optionalExecutionCtx(c))
+  ) ?? new Response("Not found.", { status: 404 });
+};
+
 app.use("*", async (c, next) => {
   await next();
   c.res = enforceCookiePolicy(c.res, c.env.W7S_BASE_DOMAIN);
+});
+
+app.use("*", async (c, next) => {
+  const runtimeResponse = await resolveCustomDomainRuntimeRequest(c);
+  if (runtimeResponse) return runtimeResponse;
+  await next();
 });
 
 const health = (c: Context<{ Bindings: Env }>) =>
@@ -78,14 +108,6 @@ app.get("/api/v1/analytics/*", handleAnalyticsGet);
 app.get("/api/v1/logs/*", handleLogsGet);
 app.get("/api/v1/telegram/webhook", handleTelegramWebhookInfo);
 app.post("/api/v1/telegram/webhook", handleTelegramWebhook);
-
-const optionalExecutionCtx = (c: Context<{ Bindings: Env }>) => {
-  try {
-    return c.executionCtx;
-  } catch {
-    return undefined;
-  }
-};
 
 app.all("*", async (c) => {
   const runtimeResponse = await resolveRuntimeRequest(c.req.raw, c.env, optionalExecutionCtx(c));
