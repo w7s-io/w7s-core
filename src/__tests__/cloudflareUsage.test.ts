@@ -6,16 +6,16 @@ import { storeDeploymentRecord, type DeploymentRecord } from "../storage/deploym
 import { loadUsageDailyRollup } from "../usage";
 import { usageLimitPolicyKey } from "../usageLimits";
 
-const deployment = (): DeploymentRecord => ({
+const deployment = (overrides: Partial<DeploymentRecord> = {}): DeploymentRecord => ({
   version: 1,
-  orgSlug: "acme",
-  repoSlug: "app",
-  environment: "production",
-  repository: "acme/app",
+  orgSlug: overrides.orgSlug ?? "acme",
+  repoSlug: overrides.repoSlug ?? "app",
+  environment: overrides.environment ?? "production",
+  repository: overrides.repository ?? "acme/app",
   branch: "main",
   commitSha: "abc123",
   deployedAt: "2026-05-26T10:00:00.000Z",
-  bindings: {
+  bindings: overrides.bindings ?? {
     kv: [
       {
         binding: "CACHE",
@@ -43,7 +43,7 @@ const deployment = (): DeploymentRecord => ({
       }
     ]
   },
-  targets: {
+  targets: overrides.targets ?? {
     worker: {
       namespace: "w7s-isolate",
       scriptName: "acme--app--production--abc123",
@@ -51,7 +51,8 @@ const deployment = (): DeploymentRecord => ({
       compatibilityDate: "2026-05-23",
       startupTimeMs: 5
     }
-  }
+  },
+  ...overrides
 });
 
 describe("Cloudflare usage collector", () => {
@@ -310,5 +311,99 @@ describe("Cloudflare usage collector", () => {
         reason: "W7S free-tier limit exceeded for d1.rows_read."
       })
     );
+  });
+
+  it("retries transient KV throttling during hourly usage writes", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () =>
+      Response.json({ data: { viewer: { accounts: [{}] } } })
+    ));
+
+    const env = createTestEnv({
+      CLOUDFLARE_API_TOKEN: "cf-token",
+      CLOUDFLARE_ACCOUNT_ID: "acct-123"
+    });
+    await storeDeploymentRecord(env, deployment());
+
+    const originalPut = env.DEPLOYMENTS_KV.put.bind(env.DEPLOYMENTS_KV);
+    let throttled = false;
+    const putSpy = vi.fn(async (key: string, value, options) => {
+      if (!throttled && key.startsWith("usage_cf_hourly:v1:")) {
+        throttled = true;
+        throw new Error("KV PUT failed: 429 Too Many Requests");
+      }
+      return originalPut(key, value, options);
+    });
+    env.DEPLOYMENTS_KV.put = putSpy as KVNamespace["put"];
+
+    const result = await collectHourlyCloudflareUsage(env, new Date("2026-05-26T12:15:00.000Z"));
+
+    expect(result).toEqual(expect.objectContaining({ failures: 0 }));
+    expect(throttled).toBe(true);
+    await expect(
+      listCloudflareUsageHourlyRecords(env, {
+        date: "2026-05-26",
+        environment: "production",
+        orgSlug: "acme",
+        repoSlug: "app"
+      })
+    ).resolves.toHaveLength(1);
+  });
+
+  it("limits concurrent deployment collection to avoid KV write bursts", async () => {
+    let active = 0;
+    let maxActive = 0;
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active -= 1;
+      return Response.json({
+        data: {
+          viewer: {
+            accounts: [
+              {
+                kvOperationsAdaptiveGroups: [
+                  {
+                    sum: { requests: 1 },
+                    dimensions: { actionType: "read" }
+                  }
+                ],
+                kvStorageAdaptiveGroups: []
+              }
+            ]
+          }
+        }
+      });
+    }));
+
+    const env = createTestEnv({
+      CLOUDFLARE_API_TOKEN: "cf-token",
+      CLOUDFLARE_ACCOUNT_ID: "acct-123"
+    });
+    for (let index = 0; index < 10; index += 1) {
+      const repoSlug = `app-${index}`;
+      await storeDeploymentRecord(env, deployment({
+        repoSlug,
+        repository: `acme/${repoSlug}`,
+        targets: {},
+        bindings: {
+          kv: [
+            {
+              binding: "CACHE",
+              name: `w7s-production-acme-${repoSlug}-kv-cache`,
+              namespaceId: `kv-ns-${index}`
+            }
+          ],
+          d1: [],
+          r2: [],
+          durableObjects: []
+        }
+      }));
+    }
+
+    const result = await collectHourlyCloudflareUsage(env, new Date("2026-05-26T12:15:00.000Z"));
+
+    expect(result).toEqual(expect.objectContaining({ deployments: 10, failures: 0 }));
+    expect(maxActive).toBeLessThanOrEqual(4);
   });
 });

@@ -1,5 +1,6 @@
 import { clearAppLimitState, suspendAppForLimits } from "./appLimits";
 import type { Env } from "./env";
+import { putKvWithRetry } from "./kvRetry";
 import { sanitizeScriptPart } from "./names";
 import { notifyUsageCollectionFailures } from "./notifications";
 import {
@@ -18,6 +19,7 @@ import {
 
 const GRAPHQL_ENDPOINT = "https://api.cloudflare.com/client/v4/graphql";
 const COLLECTION_LOCK_TTL_SECONDS = 3 * 60 * 60;
+const COLLECTION_DEPLOYMENT_CONCURRENCY = 4;
 const CLOUDFLARE_METRIC_SOURCES = new Set([
   "worker.request",
   "runtime.cpu_ms",
@@ -507,7 +509,8 @@ export const storeCloudflareUsageHourlyRecord = async (
   env: Env,
   record: CloudflareUsageHourlyRecord
 ) => {
-  await env.DEPLOYMENTS_KV.put(
+  await putKvWithRetry(
+    env.DEPLOYMENTS_KV,
     cloudflareUsageHourlyKey(record),
     JSON.stringify(record)
   );
@@ -610,7 +613,7 @@ export const mergeCloudflareHourlyIntoDaily = async (
   daily.cloudflareSyncedAt = hourly.at(-1)?.syncedAt ?? daily.cloudflareSyncedAt;
   daily.cloudflareHours = hourly.map((record) => record.hour);
 
-  await env.DEPLOYMENTS_KV.put(usageKey(params), JSON.stringify(daily));
+  await putKvWithRetry(env.DEPLOYMENTS_KV, usageKey(params), JSON.stringify(daily));
   await rebuildUsageAggregatesForDate(env, {
     date: params.date,
     environment: params.environment
@@ -772,6 +775,32 @@ const failureMessage = (error: unknown) =>
 const usageFailureDetail = (deployment: DeploymentRecord, error: unknown) =>
   `${deployment.repository} (${deployment.environment}): ${failureMessage(error)}`;
 
+const collectWithConcurrency = async <T, U>(
+  items: T[],
+  concurrency: number,
+  run: (item: T, index: number) => Promise<U>
+): Promise<PromiseSettledResult<U>[]> => {
+  const results = new Array<PromiseSettledResult<U>>(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      for (;;) {
+        const index = nextIndex;
+        nextIndex += 1;
+        if (index >= items.length) return;
+        const item = items[index];
+        try {
+          results[index] = { status: "fulfilled", value: await run(item, index) };
+        } catch (reason) {
+          results[index] = { status: "rejected", reason };
+        }
+      }
+    })
+  );
+  return results;
+};
+
 export const collectHourlyCloudflareUsage = async (
   env: Env,
   now = new Date()
@@ -785,13 +814,15 @@ export const collectHourlyCloudflareUsage = async (
   const lockKey = collectionLockKey(hour);
   const existingLock = await env.DEPLOYMENTS_KV.get(lockKey);
   if (existingLock) return { collected: false, reason: "already collected", deployments: 0 };
-  await env.DEPLOYMENTS_KV.put(lockKey, now.toISOString(), {
+  await putKvWithRetry(env.DEPLOYMENTS_KV, lockKey, now.toISOString(), {
     expirationTtl: COLLECTION_LOCK_TTL_SECONDS
   });
 
   const deployments = await listDeploymentRecords(env);
-  const settled = await Promise.allSettled(
-    deployments.map(async (deployment) => ({
+  const settled = await collectWithConcurrency(
+    deployments,
+    COLLECTION_DEPLOYMENT_CONCURRENCY,
+    async (deployment) => ({
       deployment,
       record: await collectDeploymentMetrics(env, deployment, {
         accountId,
@@ -800,7 +831,7 @@ export const collectHourlyCloudflareUsage = async (
         end,
         syncedAt: now
       })
-    }))
+    })
   );
   const failures = settled
     .map((entry, index) => ({ entry, deployment: deployments[index] }))

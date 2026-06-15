@@ -1,6 +1,7 @@
 import type { Env } from "./env";
 import { sanitizeScriptPart } from "./names";
 import { reportBillableUsage } from "./billing";
+import { putKvWithRetry } from "./kvRetry";
 
 export type UsageOutcome = "success" | "error";
 
@@ -266,7 +267,8 @@ export const rebuildUsageAggregatesForDate = async (env: Env, params: {
 
   await Promise.all([
     ...[...ownerMetrics.entries()].map(([orgSlug, metrics]) =>
-      env.DEPLOYMENTS_KV.put(
+      putKvWithRetry(
+        env.DEPLOYMENTS_KV,
         usageOwnerKey({ date: params.date, environment: params.environment, orgSlug }),
         JSON.stringify({
           version: 1,
@@ -280,7 +282,8 @@ export const rebuildUsageAggregatesForDate = async (env: Env, params: {
         } satisfies UsageDailyRollup)
       )
     ),
-    env.DEPLOYMENTS_KV.put(
+    putKvWithRetry(
+      env.DEPLOYMENTS_KV,
       usageGlobalKey(params),
       JSON.stringify({
         version: 1,
