@@ -12,6 +12,7 @@ Start here:
 6. [Usage Accounting](./usage-accounting.md): per-app daily usage rollups, warning thresholds, and hard daily limits.
 7. [Development And Testing](./development-and-testing.md): local commands, `w7s-local`, tests, and safe change workflow.
 8. [Agent Handoff](./agent-handoff.md): current state, known limitations, and common next tasks.
+9. [W7S vs Vercel](./w7s-vs-vercel-github-native-deploys.md): GitHub-native deploys without a dashboard.
 
 ## Current Model
 
