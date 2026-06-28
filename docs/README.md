@@ -13,6 +13,9 @@ Start here:
 7. [Development And Testing](./development-and-testing.md): local commands, `w7s-local`, tests, and safe change workflow.
 8. [Agent Handoff](./agent-handoff.md): current state, known limitations, and common next tasks.
 9. [W7S vs Vercel](./w7s-vs-vercel-github-native-deploys.md): GitHub-native deploys without a dashboard.
+10. [W7S vs n8n](./w7s-vs-n8n-javascript-automation.md): JavaScript automation without the workflow tax.
+11. [Replace n8n Cron Workflows](./replace-n8n-cron-workflows-with-w7s.md): scheduled JavaScript jobs on W7S.
+12. [AI Automation With W7S Bindings](./ai-automation-with-w7s-bindings.md): cron, JavaScript, and AI bindings as a developer-owned n8n alternative.
 
 ## Current Model
 
