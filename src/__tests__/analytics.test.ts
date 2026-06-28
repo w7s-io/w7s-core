@@ -36,7 +36,11 @@ describe("analytics helper", () => {
           "success",
           "static_exact",
           "w7s-io/example",
-          "GET"
+          "GET",
+          "",
+          "",
+          "",
+          ""
         ],
         doubles: [3, 200, 12]
       }

@@ -163,6 +163,9 @@ const writeRuntimeAnalytics = async (params: {
 }) => {
   const durationMs = Date.now() - params.startedAt;
   const outcome = responseOutcome(params.response.status);
+  const url = new URL(params.request.url);
+  const requestHost = cleanHost(params.request.headers.get("host") || url.host);
+  const colo = typeof params.request.cf?.colo === "string" ? params.request.cf.colo : "";
   const shouldRecordStaticR2Read =
     params.source.startsWith("static_") &&
     params.response.status >= 200 &&
@@ -178,6 +181,10 @@ const writeRuntimeAnalytics = async (params: {
       outcome,
       source: params.mount ? `${params.source}:${params.mount}` : params.source,
       method: params.request.method,
+      host: requestHost,
+      path: url.pathname,
+      userAgent: params.request.headers.get("user-agent") || "",
+      colo,
       status: params.response.status,
       durationMs
     });
@@ -212,7 +219,10 @@ const writeRuntimeAnalytics = async (params: {
       repoSlug: params.deployment.repoSlug,
       units: 1
     });
-    if (check?.wouldBlock) {
+    if (
+      check?.wouldBlock &&
+      !(params.source === "static_fallback" && check.enforcement === "rate")
+    ) {
       const message = costGuardExceededMessage(check);
       const resumeAfter =
         check.enforcement === "rate"

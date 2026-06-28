@@ -122,7 +122,11 @@ describe("runtime router", () => {
         "success",
         "static_exact:repo-prefix",
         "",
-        "GET"
+        "GET",
+        "w7s-io.w7s.cloud",
+        "/demo/",
+        "",
+        ""
       ],
       doubles: [1, 200, expect.any(Number)]
     });
@@ -643,6 +647,92 @@ describe("runtime router", () => {
     expect(assetResponse.status).toBe(200);
     expect(assetResponse.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
     expect(await assetResponse.text()).toContain("whereis");
+  });
+
+  it("does not serve SPA fallback for obvious scanner paths on custom domains", async () => {
+    const env = createTestEnv();
+    const record = await storeStaticDeployment(env, {
+      orgSlug: "w7s-io",
+      repoSlug: "docs",
+      files: {
+        "index.html": {
+          body: "<h1>Docs</h1>",
+          contentType: "text/html; charset=utf-8"
+        }
+      }
+    });
+    await storeCustomDomainMappings(env, record, ["w7s.io"]);
+
+    for (const path of ["/.env", "/wp-login.php", "/assets/missing.js"]) {
+      const response = await app.fetch(
+        new Request(`https://w7s.io${path}`, {
+          headers: {
+            host: "w7s.io"
+          }
+        }),
+        env
+      );
+
+      expect(response.status).toBe(404);
+      expect(await response.text()).toBe("Not found.");
+    }
+
+    const spaRoute = await app.fetch(
+      new Request("https://w7s.io/docs/getting-started", {
+        headers: {
+          host: "w7s.io"
+        }
+      }),
+      env
+    );
+
+    expect(spaRoute.status).toBe(200);
+    expect(await spaRoute.text()).toContain("Docs");
+  });
+
+  it("does not suspend apps for static fallback rate bursts", async () => {
+    const env = createTestEnv();
+    const record = await storeStaticDeployment(env, {
+      orgSlug: "acme",
+      repoSlug: "site",
+      files: {
+        "index.html": {
+          body: "<h1>Site</h1>",
+          contentType: "text/html; charset=utf-8"
+        }
+      }
+    });
+    await storeCustomDomainMappings(env, record, ["site.example.com"]);
+
+    for (let index = 0; index < 301; index += 1) {
+      const response = await app.fetch(
+        new Request(`https://site.example.com/page-${index}`, {
+          headers: {
+            host: "site.example.com"
+          }
+        }),
+        env
+      );
+      expect(response.status).toBe(200);
+    }
+
+    await expect(
+      loadAppLimitState(env, {
+        environment: "production",
+        orgSlug: "acme",
+        repoSlug: "site"
+      })
+    ).resolves.toBeNull();
+
+    const afterBurst = await app.fetch(
+      new Request("https://site.example.com/after-burst", {
+        headers: {
+          host: "site.example.com"
+        }
+      }),
+      env
+    );
+    expect(afterBurst.status).toBe(200);
   });
 
   it("routes platform-looking custom domain paths to the deployment", async () => {

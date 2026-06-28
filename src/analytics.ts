@@ -24,6 +24,10 @@ export type AnalyticsEvent = {
   source?: string | null;
   target?: string | null;
   method?: string | null;
+  host?: string | null;
+  path?: string | null;
+  userAgent?: string | null;
+  colo?: string | null;
   status?: number | null;
   durationMs?: number | null;
   count?: number | null;
@@ -41,21 +45,34 @@ const number = (value: number | null | undefined) =>
 export const responseOutcome = (status: number): AnalyticsOutcome =>
   status >= 200 && status < 400 ? "success" : "error";
 
+const blobsForEvent = (event: AnalyticsEvent) => {
+  const blobs = [
+    blob(event.event),
+    blob(event.repository),
+    blob(event.environment),
+    blob(event.orgSlug),
+    blob(event.repoSlug),
+    blob(event.outcome),
+    blob(event.source),
+    blob(event.target),
+    blob(event.method)
+  ];
+  if (event.event === "runtime_request") {
+    blobs.push(
+      blob(event.host),
+      blob(event.path),
+      blob(event.userAgent),
+      blob(event.colo)
+    );
+  }
+  return blobs;
+};
+
 export const writeAnalyticsEvent = (env: Env, event: AnalyticsEvent) => {
   try {
     env.W7S_ANALYTICS?.writeDataPoint({
       indexes: [index(event.repository)],
-      blobs: [
-        blob(event.event),
-        blob(event.repository),
-        blob(event.environment),
-        blob(event.orgSlug),
-        blob(event.repoSlug),
-        blob(event.outcome),
-        blob(event.source),
-        blob(event.target),
-        blob(event.method)
-      ],
+      blobs: blobsForEvent(event),
       doubles: [
         number(event.count ?? 1),
         number(event.status),

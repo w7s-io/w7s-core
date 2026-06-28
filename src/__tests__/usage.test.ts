@@ -213,6 +213,41 @@ describe("usage rollups", () => {
     );
   });
 
+  it("uses a higher runtime request burst cap for first-party docs", async () => {
+    const env = createTestEnv();
+    const at = new Date("2026-05-26T12:00:00.000Z");
+    for (let index = 0; index < 300; index += 1) {
+      const check = await checkRateLimit(env, {
+        metric: "runtime.request",
+        environment: "production",
+        orgSlug: "w7s-io",
+        repoSlug: "docs",
+        at
+      });
+      expect(check?.wouldBlock).toBe(false);
+    }
+
+    await expect(
+      checkRateLimit(env, {
+        metric: "runtime.request",
+        environment: "production",
+        orgSlug: "w7s-io",
+        repoSlug: "docs",
+        units: 1_701,
+        at
+      })
+    ).resolves.toEqual(
+      expect.objectContaining({
+        scope: "repo",
+        used: 300,
+        projectedUnits: 2_001,
+        limit: 2_000,
+        windowSeconds: 60,
+        wouldBlock: true
+      })
+    );
+  });
+
   it("does not increment burst counters when daily limits already block", async () => {
     const env = createTestEnv();
     const at = new Date("2026-05-26T12:00:00.000Z");
@@ -720,6 +755,10 @@ describe("usage rollups", () => {
                 source: "worker",
                 target: "",
                 method: "GET",
+                host: "app.example.com",
+                path: "/docs",
+                userAgent: "TestBot/1.0",
+                colo: "IAD",
                 count: "1",
                 status: "200",
                 durationMs: "9"
@@ -781,6 +820,10 @@ describe("usage rollups", () => {
                 source: "worker",
                 target: "",
                 method: "GET",
+                host: "app.example.com",
+                path: "/docs",
+                userAgent: "TestBot/1.0",
+                colo: "IAD",
                 count: 1,
                 status: 200,
                 durationMs: 9

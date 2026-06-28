@@ -148,6 +148,10 @@ const eventsQuery = (dataset: string, where: string, limit: number) => `
     blob7 AS source,
     blob8 AS target,
     blob9 AS method,
+    blob10 AS host,
+    blob11 AS path,
+    blob12 AS userAgent,
+    blob13 AS colo,
     double1 AS count,
     double2 AS status,
     double3 AS durationMs
@@ -258,6 +262,10 @@ export const handleAnalyticsGet = async (c: HonoContext) => {
           source: stringValue((row as Record<string, unknown>).source),
           target: stringValue((row as Record<string, unknown>).target),
           method: stringValue((row as Record<string, unknown>).method),
+          host: stringValue((row as Record<string, unknown>).host),
+          path: stringValue((row as Record<string, unknown>).path),
+          userAgent: stringValue((row as Record<string, unknown>).userAgent),
+          colo: stringValue((row as Record<string, unknown>).colo),
           count: numberValue((row as Record<string, unknown>).count),
           status: numberValue((row as Record<string, unknown>).status),
           durationMs: numberValue((row as Record<string, unknown>).durationMs)

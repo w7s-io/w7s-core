@@ -30,6 +30,12 @@ type BurstLimitPolicy = {
   units: number;
 };
 
+type BurstLimitOverride = BurstLimitPolicy & {
+  environment: string;
+  orgSlug: string;
+  repoSlug: string;
+};
+
 type RateLimitCounterRead = {
   check: RateLimitCheck;
   key: string;
@@ -68,6 +74,18 @@ const BURST_LIMITS: BurstLimitPolicy[] = [
   { metric: "log.write", scope: "repo", windowSeconds: 60, units: 500 },
   { metric: "log.write", scope: "owner", windowSeconds: 60, units: 2_000 },
   { metric: "log.write", scope: "global", windowSeconds: 60, units: 10_000 }
+];
+
+const BURST_LIMIT_OVERRIDES: BurstLimitOverride[] = [
+  {
+    metric: "runtime.request",
+    scope: "repo",
+    environment: "production",
+    orgSlug: "w7s-io",
+    repoSlug: "docs",
+    windowSeconds: 60,
+    units: 2_000
+  }
 ];
 
 const positiveInteger = (value: number | undefined, fallback: number) =>
@@ -116,6 +134,24 @@ const readCounter = async (env: Env, key: string) => {
 const matchingPolicies = (metric: string) =>
   BURST_LIMITS.filter((policy) => policy.metric === metric);
 
+const effectivePolicy = (
+  policy: BurstLimitPolicy,
+  params: {
+    metric: string;
+    environment: string;
+    orgSlug: string;
+    repoSlug: string;
+  }
+) =>
+  BURST_LIMIT_OVERRIDES.find((override) =>
+    override.metric === params.metric &&
+    override.scope === policy.scope &&
+    override.windowSeconds === policy.windowSeconds &&
+    override.environment === params.environment &&
+    override.orgSlug === params.orgSlug &&
+    override.repoSlug === params.repoSlug
+  ) ?? policy;
+
 export const checkRateLimit = async (
   env: Env,
   params: {
@@ -134,7 +170,13 @@ export const checkRateLimit = async (
   const at = params.at ?? new Date();
   const requestedUnits = positiveInteger(params.units, 1);
   const checks = await Promise.all(
-    policies.map(async (policy): Promise<RateLimitCounterRead> => {
+    policies.map(async (basePolicy): Promise<RateLimitCounterRead> => {
+      const policy = effectivePolicy(basePolicy, {
+        metric,
+        environment: params.environment,
+        orgSlug: params.orgSlug,
+        repoSlug: params.repoSlug
+      });
       const startMs = windowStartMs(at, policy.windowSeconds);
       const windowStart = new Date(startMs).toISOString();
       const retryAfterSeconds = Math.max(

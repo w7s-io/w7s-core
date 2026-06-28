@@ -26,6 +26,40 @@ const normalizeRequestPath = (path: string) =>
     .replace(/^\/+/, "")
     .replace(/\/{2,}/g, "/");
 
+const COMMON_SCANNER_PATHS = new Set([
+  "admin",
+  "cgi-bin",
+  "phpmyadmin",
+  "vendor",
+  "wp",
+  "wp-admin",
+  "wp-content",
+  "wp-includes",
+  "wordpress"
+]);
+
+const hasFileExtension = (path: string) => {
+  const lastSegment = path.split("/").filter(Boolean).pop() ?? "";
+  return /\.[a-z0-9]{1,12}$/i.test(lastSegment);
+};
+
+const hasHiddenOrScannerSegment = (path: string) =>
+  path
+    .split("/")
+    .filter(Boolean)
+    .some((segment) => {
+      const normalized = segment.toLowerCase();
+      return normalized.startsWith(".") || COMMON_SCANNER_PATHS.has(normalized);
+    });
+
+export const shouldServeSpaFallback = (repoPath: string) => {
+  const normalized = normalizeRequestPath(repoPath);
+  if (!normalized) return true;
+  if (hasFileExtension(normalized)) return false;
+  if (hasHiddenOrScannerSegment(normalized)) return false;
+  return true;
+};
+
 const resolveExactAsset = (manifest: StaticSiteManifest, repoPath: string) => {
   const normalized = normalizeRequestPath(repoPath);
   const candidates = [
@@ -232,7 +266,9 @@ export const resolveStaticAssetResponse = async (params: {
   const asset =
     params.mode === "exact"
       ? resolveExactAsset(manifest, params.repoPath)
-      : resolveSpaFallbackAsset(manifest);
+      : shouldServeSpaFallback(params.repoPath)
+        ? resolveSpaFallbackAsset(manifest)
+        : null;
   if (!asset) return null;
   return responseFromAsset(params.env, asset, params.request, params.executionCtx);
 };
