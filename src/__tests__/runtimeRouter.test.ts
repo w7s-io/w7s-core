@@ -735,6 +735,54 @@ describe("runtime router", () => {
     expect(afterBurst.status).toBe(200);
   });
 
+  it("does not suspend apps for custom domain not-found scanner bursts", async () => {
+    const env = createTestEnv();
+    const record = await storeStaticDeployment(env, {
+      orgSlug: "acme",
+      repoSlug: "scanner-target",
+      files: {
+        "index.html": {
+          body: "<h1>Scanner target</h1>",
+          contentType: "text/html; charset=utf-8"
+        }
+      }
+    });
+    await storeCustomDomainMappings(env, record, ["scanner.example.com"]);
+
+    for (let index = 0; index < 301; index += 1) {
+      const response = await app.fetch(
+        new Request(`https://scanner.example.com/probe-${index}.env`, {
+          headers: {
+            host: "scanner.example.com",
+            "user-agent": "curl/8.7.1"
+          }
+        }),
+        env
+      );
+      expect(response.status).toBe(404);
+      expect(await response.text()).toBe("Not found.");
+    }
+
+    await expect(
+      loadAppLimitState(env, {
+        environment: "production",
+        orgSlug: "acme",
+        repoSlug: "scanner-target"
+      })
+    ).resolves.toBeNull();
+
+    const afterBurst = await app.fetch(
+      new Request("https://scanner.example.com/", {
+        headers: {
+          host: "scanner.example.com"
+        }
+      }),
+      env
+    );
+    expect(afterBurst.status).toBe(200);
+    expect(await afterBurst.text()).toContain("Scanner target");
+  });
+
   it("routes platform-looking custom domain paths to the deployment", async () => {
     const env = createTestEnv({
       APP_COMMIT_ID: "platform",

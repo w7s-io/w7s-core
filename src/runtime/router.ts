@@ -150,6 +150,9 @@ const addRuntimeTimingHeader = (
   return debugResponse;
 };
 
+const suppressRateSuspensionForSource = (source: string, enforcement: string) =>
+  enforcement === "rate" && (source === "static_fallback" || source === "not_found");
+
 const writeRuntimeAnalytics = async (params: {
   env: Env;
   request: Request;
@@ -221,7 +224,7 @@ const writeRuntimeAnalytics = async (params: {
     });
     if (
       check?.wouldBlock &&
-      !(params.source === "static_fallback" && check.enforcement === "rate")
+      !suppressRateSuspensionForSource(params.source, check.enforcement)
     ) {
       const message = costGuardExceededMessage(check);
       const resumeAfter =
