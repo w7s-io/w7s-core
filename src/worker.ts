@@ -76,6 +76,7 @@ const health = (c: Context<{ Bindings: Env }>) =>
     status: "ok",
     service: "w7s-io",
     commitId: c.env.APP_COMMIT_ID ?? null,
+    commitHash: c.env.APP_COMMIT_ID ?? null,
     branch: c.env.APP_DEPLOY_BRANCH ?? null,
     deployedAt: c.env.APP_DEPLOYED_AT ?? null
   });

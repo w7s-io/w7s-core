@@ -12,6 +12,7 @@
 - Keep custom-domain scanner noise from suspending customer apps when W7S returns cheap `not_found` 404 responses.
 - Continue recording `runtime.request` telemetry for all routed requests, including scanner 404s.
 - Preserve suspension behavior for actual app/workload traffic and non-rate policy enforcement.
+- Keep platform health responses compatible with backend metadata expectations by exposing `branch`, `commitHash`, and `deployedAt`; `commitId` remains present for backward compatibility.
 
 ## Known Incident Context
 

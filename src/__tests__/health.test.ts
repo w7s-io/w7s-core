@@ -26,6 +26,7 @@ describe("health endpoint", () => {
         status: "ok",
         service: "w7s-io",
         commitId: "abc123",
+        commitHash: "abc123",
         branch: "main",
         deployedAt: "2026-05-23T19:31:42Z"
       });
