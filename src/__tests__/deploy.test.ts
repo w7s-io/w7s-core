@@ -1771,6 +1771,115 @@ describe("deploy API", () => {
     );
   });
 
+  it("uploads declared Email Service bindings", async () => {
+    const uploadedMetadata: {
+      bindings?: Array<Record<string, unknown>>;
+    }[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.startsWith("https://api.github.com/repos/")) {
+          return Response.json({ full_name: "w7s-io/demo" });
+        }
+        if (url.endsWith("/workers/dispatch/namespaces/w7s-isolate")) {
+          return Response.json({ success: true, result: {} });
+        }
+        if (
+          url.includes("/workers/dispatch/namespaces/w7s-isolate/scripts/") &&
+          init?.method === "PUT"
+        ) {
+          const form = init.body as FormData;
+          const metadata = form.get("metadata") as Blob;
+          uploadedMetadata.push(JSON.parse(await metadata.text()));
+          return Response.json({ success: true, result: { startup_time_ms: 5 } });
+        }
+        return Response.json({ success: true, result: {} });
+      })
+    );
+    const env = createTestEnv({
+      CLOUDFLARE_API_TOKEN: "cf-token",
+      CLOUDFLARE_ACCOUNT_ID: "acct-123"
+    });
+    const response = await app.fetch(
+      deployRequest({
+        "backend/index.js": "export default { fetch(_request, env){ return Response.json({ hasEmail: Boolean(env.EMAIL) }) } }",
+        "w7s.json": JSON.stringify({
+          bindings: {
+            email: [
+              "EMAIL",
+              {
+                binding: "RESTRICTED_EMAIL",
+                allowedSenderAddresses: ["noreply@example.com"],
+                allowedDestinationAddresses: ["ops@example.com"]
+              }
+            ]
+          }
+        })
+      }),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const record = await loadDeploymentRecord(env, "production", "w7s-io", "demo");
+    expect(record?.bindings?.email).toEqual([
+      {
+        binding: "EMAIL"
+      },
+      {
+        binding: "RESTRICTED_EMAIL",
+        allowedSenderAddresses: ["noreply@example.com"],
+        allowedDestinationAddresses: ["ops@example.com"]
+      }
+    ]);
+    expect(uploadedMetadata[0]?.bindings).toEqual(
+      expect.arrayContaining([
+        {
+          type: "send_email",
+          name: "EMAIL"
+        },
+        {
+          type: "send_email",
+          name: "RESTRICTED_EMAIL",
+          allowed_sender_addresses: ["noreply@example.com"],
+          allowed_destination_addresses: ["ops@example.com"]
+        }
+      ])
+    );
+  });
+
+  it("rejects Email Service bindings on static-only deployments", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith("https://api.github.com/repos/")) {
+          return Response.json({ full_name: "w7s-io/demo" });
+        }
+        return Response.json({ success: true, result: {} });
+      })
+    );
+    const env = createTestEnv();
+    const response = await app.fetch(
+      deployRequest({
+        "dist/index.html": "<h1>Hello</h1>",
+        "w7s.json": JSON.stringify({
+          bindings: {
+            email: ["EMAIL"]
+          }
+        })
+      }),
+      env
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual(
+      expect.objectContaining({
+        error: "Email bindings require a native backend deployment."
+      })
+    );
+  });
+
   it("rejects Hyperdrive bindings on static-only deployments", async () => {
     vi.stubGlobal(
       "fetch",

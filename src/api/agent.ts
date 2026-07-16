@@ -369,6 +369,7 @@ export const handleAgentManifestSchemaGet = () =>
           d1: { type: "array", items: { anyOf: [{ type: "string" }, { type: "object" }] } },
           durableObjects: { type: "array", items: { anyOf: [{ type: "string" }, { type: "object" }] } },
           hyperdrive: { type: "array", items: { type: "object" } },
+          email: { type: "array", items: { anyOf: [{ type: "string" }, { type: "object" }] } },
           ai: { type: "array", items: { anyOf: [{ type: "string" }, { type: "object" }] } }
         }
       },
@@ -388,6 +389,7 @@ export const handleAgentManifestSchemaGet = () =>
           kv: ["CACHE"],
           r2: ["FILES"],
           d1: [{ binding: "DB", migrations: "migrations" }],
+          email: ["EMAIL"],
           ai: ["AI"]
         },
         queues: ["jobs"],

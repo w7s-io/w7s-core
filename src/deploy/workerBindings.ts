@@ -27,6 +27,13 @@ export type WorkerUploadBinding =
       id: string;
     }
   | {
+      type: "send_email";
+      name: string;
+      destination_address?: string;
+      allowed_destination_addresses?: string[];
+      allowed_sender_addresses?: string[];
+    }
+  | {
       type: "plain_text";
       name: string;
       text: string;

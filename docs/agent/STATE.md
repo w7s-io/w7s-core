@@ -13,6 +13,7 @@
 - Continue recording `runtime.request` telemetry for all routed requests, including scanner 404s.
 - Preserve suspension behavior for actual app/workload traffic and non-rate policy enforcement.
 - Keep platform health responses compatible with backend metadata expectations by exposing `branch`, `commitHash`, and `deployedAt`; `commitId` remains present for backward compatibility.
+- Native backend manifests support Cloudflare Email Service send bindings through `bindings.email`, uploaded as Worker `send_email` bindings.
 
 ## Known Incident Context
 

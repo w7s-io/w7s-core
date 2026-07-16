@@ -124,6 +124,12 @@ export type DeploymentBindings = {
     binding: string;
     id: string;
   }>;
+  email?: Array<{
+    binding: string;
+    destinationAddress?: string;
+    allowedDestinationAddresses?: string[];
+    allowedSenderAddresses?: string[];
+  }>;
   vars?: string[];
   secrets?: string[];
 };

@@ -129,6 +129,7 @@ KV bindings             3
 R2 bindings             3
 D1 bindings             2
 Durable Object classes  2
+Email bindings          2
 queues                  2
 schedules               5
 workflows               5
@@ -183,7 +184,8 @@ Example:
         "binding": "DB",
         "id": "cloudflare-hyperdrive-id"
       }
-    ]
+    ],
+    "email": ["EMAIL"]
   },
   "queues": ["jobs"],
   "schedules": [
@@ -206,7 +208,7 @@ Example:
 }
 ```
 
-`bindings.kv` entries create Workers KV namespaces. `bindings.r2` entries create R2 buckets. `bindings.d1` entries create D1 databases. `bindings.durableObjects` entries bind Durable Object classes exported by the native Worker. `bindings.hyperdrive` entries bind existing Cloudflare Hyperdrive configurations by ID. String storage entries use generated resource names; object entries can provide explicit names:
+`bindings.kv` entries create Workers KV namespaces. `bindings.r2` entries create R2 buckets. `bindings.d1` entries create D1 databases. `bindings.durableObjects` entries bind Durable Object classes exported by the native Worker. `bindings.hyperdrive` entries bind existing Cloudflare Hyperdrive configurations by ID. `bindings.email` entries upload Cloudflare Email Service send bindings. String storage entries use generated resource names; object entries can provide explicit names:
 
 ```json
 {
@@ -267,6 +269,25 @@ Hyperdrive bindings require a native backend deployment and an existing Cloudfla
 ```
 
 W7S uploads those declarations as `hyperdrive` Worker bindings. It does not create Hyperdrive configs or rotate database credentials yet. Apps using common Postgres drivers usually need a bundled backend and Node.js compatibility flags from `dist/server/wrangler.json`.
+
+Email bindings require a native backend deployment and an Email Service sending domain already enabled in the Cloudflare account:
+
+```json
+{
+  "bindings": {
+    "email": [
+      "EMAIL",
+      {
+        "binding": "RESTRICTED_EMAIL",
+        "allowedSenderAddresses": ["noreply@example.com"],
+        "allowedDestinationAddresses": ["ops@example.com"]
+      }
+    ]
+  }
+}
+```
+
+W7S uploads these declarations as `send_email` Worker bindings. Backend code can call `env.EMAIL.send(...)`. W7S does not onboard sending domains; configure Email Service in Cloudflare before deploying an app that sends email.
 
 `rpc.allow` is optional. Same-owner backend-to-backend calls are allowed by default. Cross-owner calls are accepted only when the target app lists the caller GitHub owner or exact `owner/repo`.
 

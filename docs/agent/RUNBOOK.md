@@ -6,6 +6,26 @@
 npm run check
 ```
 
+## Email Binding Verification
+
+Deploy a native backend with:
+
+```json
+{
+  "bindings": {
+    "email": ["EMAIL"]
+  }
+}
+```
+
+Confirm the uploaded Worker metadata includes:
+
+```json
+{ "type": "send_email", "name": "EMAIL" }
+```
+
+The Cloudflare account must already have Email Service sending enabled for the sender domain. W7S only uploads the Worker binding.
+
 ## Usage Limit Investigation
 
 List current app suspension state:

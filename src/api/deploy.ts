@@ -256,6 +256,9 @@ export const handleDeploy = async (c: HonoContext) => {
   if (!hasNativeBackend && appManifest.bindings.hyperdrive.length > 0) {
     return jsonError("Hyperdrive bindings require a native backend deployment.", 400);
   }
+  if (!hasNativeBackend && appManifest.bindings.email.length > 0) {
+    return jsonError("Email bindings require a native backend deployment.", 400);
+  }
   const deployLimitErrors = validateDeployLimits({
     archive,
     manifest: appManifest,

@@ -12,3 +12,15 @@ For short-window rate enforcement only, W7S suppresses app suspension for:
 Rationale: these responses are cheap platform-generated outcomes commonly caused by external scanners. They should remain visible in telemetry and usage counters, but they should not make a customer app unavailable when no customer runtime work is being performed.
 
 Non-rate policy enforcement and real app traffic remain suspendable.
+
+## 2026-07-16: Email Service Bindings Are Native Backend Runtime Bindings
+
+W7S supports Cloudflare Email Service send bindings through `bindings.email` in `w7s.json`.
+
+Declarations are uploaded as Worker metadata bindings with `type: "send_email"`. W7S passes through optional binding restrictions:
+
+- `destinationAddress`
+- `allowedDestinationAddresses`
+- `allowedSenderAddresses`
+
+W7S does not onboard Email Service sending domains. The Cloudflare account must already have sending enabled for the sender domain before app code calls `env.EMAIL.send(...)`.

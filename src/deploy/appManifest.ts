@@ -33,6 +33,13 @@ export type HyperdriveBindingDeclaration = {
   id: string;
 };
 
+export type EmailBindingDeclaration = {
+  binding: string;
+  destinationAddress?: string;
+  allowedDestinationAddresses?: string[];
+  allowedSenderAddresses?: string[];
+};
+
 export type AiBindingDeclaration = {
   binding: string;
 };
@@ -59,6 +66,7 @@ export type AppManifest = {
     d1: D1BindingDeclaration[];
     durableObjects: DurableObjectBindingDeclaration[];
     hyperdrive: HyperdriveBindingDeclaration[];
+    email: EmailBindingDeclaration[];
     ai: AiBindingDeclaration[];
   };
   queues: QueueDeclaration[];
@@ -87,6 +95,7 @@ const emptyManifest = (): AppManifest => ({
     d1: [],
     durableObjects: [],
     hyperdrive: [],
+    email: [],
     ai: []
   },
   queues: [],
@@ -172,6 +181,12 @@ const ensureNonEmptyString = (value: unknown, field: string) => {
   const trimmed = value.trim();
   if (!trimmed) throw new Error(`${field} must not be empty.`);
   return trimmed;
+};
+
+const optionalStringArray = (value: unknown, field: string) => {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) throw new Error(`${field} must be an array.`);
+  return value.map((entry, index) => ensureNonEmptyString(entry, `${field}[${index}]`));
 };
 
 const ensureSchedulePath = (value: unknown, field: string) => {
@@ -267,6 +282,47 @@ const parseHyperdriveBindings = (value: unknown): HyperdriveBindingDeclaration[]
     };
     if (seenBindings.has(declaration.binding)) {
       throw new Error(`bindings.hyperdrive[${index}].binding duplicates ${declaration.binding}.`);
+    }
+    seenBindings.add(declaration.binding);
+    return declaration;
+  });
+};
+
+const parseEmailBindings = (value: unknown): EmailBindingDeclaration[] => {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new Error("bindings.email must be an array.");
+  const seenBindings = new Set<string>();
+  return value.map((entry, index) => {
+    const declaration =
+      typeof entry === "string"
+        ? { binding: ensureBindingName(entry, `bindings.email[${index}]`) }
+        : (() => {
+            const record = asRecord(entry, `bindings.email[${index}]`);
+            const destinationAddress = optionalString(
+              record.destinationAddress ?? record.destination_address,
+              `bindings.email[${index}].destinationAddress`
+            );
+            const allowedDestinationAddresses = optionalStringArray(
+              record.allowedDestinationAddresses ?? record.allowed_destination_addresses,
+              `bindings.email[${index}].allowedDestinationAddresses`
+            );
+            if (destinationAddress && allowedDestinationAddresses) {
+              throw new Error(
+                `bindings.email[${index}] must have either destinationAddress or allowedDestinationAddresses, not both.`
+              );
+            }
+            return {
+              binding: ensureBindingName(record.binding, `bindings.email[${index}].binding`),
+              destinationAddress,
+              allowedDestinationAddresses,
+              allowedSenderAddresses: optionalStringArray(
+                record.allowedSenderAddresses ?? record.allowed_sender_addresses,
+                `bindings.email[${index}].allowedSenderAddresses`
+              )
+            };
+          })();
+    if (seenBindings.has(declaration.binding)) {
+      throw new Error(`bindings.email[${index}].binding duplicates ${declaration.binding}.`);
     }
     seenBindings.add(declaration.binding);
     return declaration;
@@ -445,6 +501,7 @@ export const readAppManifest = (archive: DeployArchive) => {
       d1: parseD1Bindings(bindings.d1),
       durableObjects: parseDurableObjectBindings(bindings.durableObjects ?? bindings.durable_objects),
       hyperdrive: parseHyperdriveBindings(bindings.hyperdrive),
+      email: parseEmailBindings(bindings.email ?? bindings.sendEmail ?? bindings.send_email),
       ai: parseAiBindings(bindings.ai)
     },
     queues: parseQueues(record.queues),

@@ -6,6 +6,7 @@ import type {
   AppManifest,
   D1BindingDeclaration,
   DurableObjectBindingDeclaration,
+  EmailBindingDeclaration,
   HyperdriveBindingDeclaration,
   KvBindingDeclaration,
   R2BindingDeclaration
@@ -69,6 +70,7 @@ const hasRuntimeBindings = (manifest: AppManifest, deployValues: DeployValues) =
   hasStorageBindings(manifest) ||
   manifest.bindings.durableObjects.length > 0 ||
   manifest.bindings.hyperdrive.length > 0 ||
+  manifest.bindings.email.length > 0 ||
   Object.keys(deployValues.vars).length > 0 ||
   Object.keys(deployValues.secrets).length > 0;
 
@@ -386,6 +388,18 @@ const hyperdriveBinding = (declaration: HyperdriveBindingDeclaration): WorkerUpl
   id: declaration.id
 });
 
+const emailBinding = (declaration: EmailBindingDeclaration): WorkerUploadBinding => ({
+  type: "send_email",
+  name: declaration.binding,
+  ...(declaration.destinationAddress ? { destination_address: declaration.destinationAddress } : {}),
+  ...(declaration.allowedDestinationAddresses
+    ? { allowed_destination_addresses: declaration.allowedDestinationAddresses }
+    : {}),
+  ...(declaration.allowedSenderAddresses
+    ? { allowed_sender_addresses: declaration.allowedSenderAddresses }
+    : {})
+});
+
 const uniqueSortedClassNames = (declarations: DurableObjectBindingDeclaration[]) =>
   [...new Set(declarations.map((declaration) => declaration.className))].sort();
 
@@ -532,6 +546,19 @@ export const provisionAppBindings = async (params: ProvisionParams) => {
     deploymentBindings.hyperdrive.push({
       binding: declaration.binding,
       id: declaration.id
+    });
+  }
+
+  for (const declaration of params.manifest.bindings.email) {
+    uploadBindings.push(emailBinding(declaration));
+    deploymentBindings.email ??= [];
+    deploymentBindings.email.push({
+      binding: declaration.binding,
+      ...(declaration.destinationAddress ? { destinationAddress: declaration.destinationAddress } : {}),
+      ...(declaration.allowedDestinationAddresses
+        ? { allowedDestinationAddresses: declaration.allowedDestinationAddresses }
+        : {}),
+      ...(declaration.allowedSenderAddresses ? { allowedSenderAddresses: declaration.allowedSenderAddresses } : {})
     });
   }
 

@@ -14,6 +14,7 @@ export const DEPLOY_LIMITS = {
   r2Bindings: 3,
   d1Bindings: 2,
   durableObjectClasses: 2,
+  emailBindings: 2,
   queues: 2,
   schedules: 5,
   workflows: 5,
@@ -53,6 +54,9 @@ export const validateDeployLimits = (params: {
   }
   if (uniqueDurableObjectClasses(manifest) > DEPLOY_LIMITS.durableObjectClasses) {
     errors.push(`w7s.json declares more than ${DEPLOY_LIMITS.durableObjectClasses} Durable Object classes.`);
+  }
+  if (manifest.bindings.email.length > DEPLOY_LIMITS.emailBindings) {
+    errors.push(`w7s.json declares more than ${DEPLOY_LIMITS.emailBindings} Email bindings.`);
   }
   if (manifest.queues.length > DEPLOY_LIMITS.queues) {
     errors.push(`w7s.json declares more than ${DEPLOY_LIMITS.queues} queues.`);
