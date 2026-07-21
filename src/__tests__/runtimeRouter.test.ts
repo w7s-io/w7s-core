@@ -649,6 +649,105 @@ describe("runtime router", () => {
     expect(await assetResponse.text()).toContain("whereis");
   });
 
+  it("serves static deployments from custom domain path mappings", async () => {
+    const env = createTestEnv();
+    const record = await storeStaticDeployment(env, {
+      orgSlug: "omattic",
+      repoSlug: "video",
+      files: {
+        "index.html": {
+          body: "<h1>Video compressor</h1>",
+          contentType: "text/html; charset=utf-8"
+        },
+        "assets/app.js": {
+          body: "console.log('compress')",
+          contentType: "application/javascript; charset=utf-8"
+        }
+      }
+    });
+    await storeCustomDomainMappings(env, record, [
+      {
+        hostname: "omattic.com",
+        pathPrefix: "/compress-video"
+      }
+    ]);
+
+    const rootResponse = await app.fetch(
+      new Request("https://omattic.com/compress-video", {
+        headers: {
+          host: "omattic.com"
+        }
+      }),
+      env
+    );
+    const assetResponse = await app.fetch(
+      new Request("https://omattic.com/compress-video/assets/app.js", {
+        headers: {
+          host: "omattic.com"
+        }
+      }),
+      env
+    );
+
+    expect(rootResponse.status).toBe(200);
+    expect(await rootResponse.text()).toContain("Video compressor");
+    expect(assetResponse.status).toBe(200);
+    expect(await assetResponse.text()).toContain("compress");
+  });
+
+  it("keeps host root and custom domain path mappings separate", async () => {
+    const env = createTestEnv();
+    const rootRecord = await storeStaticDeployment(env, {
+      orgSlug: "omattic",
+      repoSlug: "home",
+      files: {
+        "index.html": {
+          body: "<h1>Omattic home</h1>",
+          contentType: "text/html; charset=utf-8"
+        }
+      }
+    });
+    const pathRecord = await storeStaticDeployment(env, {
+      orgSlug: "omattic",
+      repoSlug: "video",
+      files: {
+        "index.html": {
+          body: "<h1>Video compressor</h1>",
+          contentType: "text/html; charset=utf-8"
+        }
+      }
+    });
+    await storeCustomDomainMappings(env, rootRecord, ["omattic.com"]);
+    await storeCustomDomainMappings(env, pathRecord, [
+      {
+        hostname: "omattic.com",
+        pathPrefix: "/compress-video"
+      }
+    ]);
+
+    const rootResponse = await app.fetch(
+      new Request("https://omattic.com/", {
+        headers: {
+          host: "omattic.com"
+        }
+      }),
+      env
+    );
+    const pathResponse = await app.fetch(
+      new Request("https://omattic.com/compress-video", {
+        headers: {
+          host: "omattic.com"
+        }
+      }),
+      env
+    );
+
+    expect(rootResponse.status).toBe(200);
+    expect(await rootResponse.text()).toContain("Omattic home");
+    expect(pathResponse.status).toBe(200);
+    expect(await pathResponse.text()).toContain("Video compressor");
+  });
+
   it("does not serve SPA fallback for obvious scanner paths on custom domains", async () => {
     const env = createTestEnv();
     const record = await storeStaticDeployment(env, {

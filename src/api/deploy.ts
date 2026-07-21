@@ -39,6 +39,7 @@ import { provisionAppQueues } from "../deploy/queueProvisioner";
 import {
   attachCustomDomainRoutes,
   branchCustomDomain,
+  customDomainRouteDisplay,
   planCustomDomainClaims,
   readCustomDomains
 } from "../deploy/customDomains";
@@ -221,12 +222,12 @@ export const handleDeploy = async (c: HonoContext) => {
   const deploymentWarnings: DeployWarning[] = [];
   const customDomainsEnabled = branch.trim() === CUSTOM_DOMAIN_BRANCH;
   const branchCustomDomainPrefix = sanitizeScriptPart(branch);
-  let customDomains: string[];
+  let customDomains: ReturnType<typeof readCustomDomains>;
   try {
     const declaredCustomDomains = readCustomDomains(archive);
     customDomains = customDomainsEnabled
       ? declaredCustomDomains
-      : declaredCustomDomains.map((hostname) => branchCustomDomain(hostname, branchCustomDomainPrefix));
+      : declaredCustomDomains.map((route) => branchCustomDomain(route, branchCustomDomainPrefix));
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : String(error), 400);
   }
@@ -273,6 +274,7 @@ export const handleDeploy = async (c: HonoContext) => {
 
   const deployedAt = new Date().toISOString();
   const targets: DeploymentRecord["targets"] = {};
+  let attachedCustomDomainRoutes: ReturnType<typeof readCustomDomains> = [];
   let attachedCustomDomains: string[] = [];
   let customDomainWarnings: Awaited<ReturnType<typeof planCustomDomainClaims>>["warnings"] = [];
   let blockedCustomDomains: Awaited<ReturnType<typeof planCustomDomainClaims>>["blocked"] = [];
@@ -404,11 +406,12 @@ export const handleDeploy = async (c: HonoContext) => {
     if (customDomains.length > 0) {
       const customDomainPlan = await planCustomDomainClaims({
         env: c.env,
-        hostnames: customDomains,
+        routes: customDomains,
         orgSlug,
         repoSlug
       });
-      attachedCustomDomains = customDomainPlan.attached;
+      attachedCustomDomainRoutes = customDomainPlan.attached;
+      attachedCustomDomains = attachedCustomDomainRoutes.map(customDomainRouteDisplay);
       customDomainWarnings = customDomainPlan.warnings;
       blockedCustomDomains = customDomainPlan.blocked;
     }
@@ -447,9 +450,9 @@ export const handleDeploy = async (c: HonoContext) => {
   };
   await storeDeploymentRecord(c.env, record);
   if (customDomainsEnabled) {
-    await replaceCustomDomainMappings(c.env, record, attachedCustomDomains);
+    await replaceCustomDomainMappings(c.env, record, attachedCustomDomainRoutes);
   } else {
-    await replaceCustomDomainMappings(c.env, record, attachedCustomDomains, {
+    await replaceCustomDomainMappings(c.env, record, attachedCustomDomainRoutes, {
       staleHostnamePrefix: `${branchCustomDomainPrefix}--`
     });
   }
@@ -457,7 +460,7 @@ export const handleDeploy = async (c: HonoContext) => {
   await replaceScheduleMappings(c.env, record, record.schedules ?? []);
   if (attachedCustomDomains.length > 0) {
     try {
-      await attachCustomDomainRoutes(c.env, attachedCustomDomains);
+      await attachCustomDomainRoutes(c.env, attachedCustomDomainRoutes);
     } catch (error) {
       await refundBillingReservation(c.env, billingReservation as BillingReservation | null);
       return jsonError(error instanceof Error ? error.message : String(error), 500);

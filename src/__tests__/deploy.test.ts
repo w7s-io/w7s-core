@@ -438,6 +438,72 @@ describe("deploy API", () => {
     expect(mapping?.repoSlug).toBe("whereis");
   });
 
+  it("attaches CNAME path routes with setup warnings", async () => {
+    const workerRoutePatterns: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.startsWith("https://api.github.com/repos/")) {
+          return Response.json({ full_name: "omattic/video" });
+        }
+        if (url === "https://api.cloudflare.com/client/v4/zones?per_page=100") {
+          return Response.json({
+            success: true,
+            result: [{ id: "zone-1", name: "omattic.com" }]
+          });
+        }
+        if (url.startsWith("https://cloudflare-dns.com/dns-query")) {
+          return Response.json({});
+        }
+        if (url.includes("/workers/routes") && init?.method === "GET") {
+          return Response.json({ success: true, result: [] });
+        }
+        if (url.includes("/workers/routes") && init?.method === "POST") {
+          const body = JSON.parse(String(init.body)) as { pattern?: string };
+          if (body.pattern) workerRoutePatterns.push(body.pattern);
+          return Response.json({ success: true, result: { id: "route-1" } });
+        }
+        return Response.json({ success: true, result: {} });
+      })
+    );
+    const env = createTestEnv({
+      CLOUDFLARE_API_TOKEN: "cf-token"
+    });
+    const response = await app.fetch(
+      deployRequest(
+        {
+          CNAME: "omattic.com/compress-video\n",
+          "dist/client/index.html": "<h1>Video compressor</h1>"
+        },
+        {
+          "x-github-repository": "omattic/video"
+        }
+      ),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as {
+      data?: {
+        url?: string;
+        customDomains?: string[];
+        customDomainWarnings?: Array<{ hostname?: string; pathPrefix?: string }>;
+      };
+    };
+    expect(body.data?.url).toBe("https://omattic.com/compress-video/");
+    expect(body.data?.customDomains).toEqual(["omattic.com/compress-video"]);
+    expect(body.data?.customDomainWarnings).toEqual([
+      expect.objectContaining({
+        hostname: "omattic.com",
+        pathPrefix: "/compress-video"
+      })
+    ]);
+    expect(workerRoutePatterns).toEqual(["omattic.com/compress-video*"]);
+    const record = await loadDeploymentRecord(env, "production", "omattic", "video");
+    expect(record?.customDomains).toEqual(["omattic.com/compress-video"]);
+  });
+
   it("attaches branch-prefixed custom domains on non-main branches", async () => {
     vi.stubGlobal("fetch", stubCustomDomainFetch({ repository: "guerrerocarlos/whereis" }));
     const env = createTestEnv({

@@ -25,7 +25,7 @@ import { landingHtml } from "./static/landing";
 import { htmlIndexableHeaders, platformSeoResponse } from "./seo";
 import { handleTailEvents } from "./logs";
 import { enforceCookiePolicy } from "./security";
-import { loadCustomDomainMapping } from "./storage/deployments";
+import { loadCustomDomainRouteMappings } from "./storage/deployments";
 import { cleanHost, getBaseDomain, resolveRuntimeHost } from "./runtime/host";
 import {
   handleDeployStatus,
@@ -52,8 +52,8 @@ const resolveCustomDomainRuntimeRequest = async (c: Context<{ Bindings: Env }>) 
   const host = cleanHost(request.headers.get("host") || url.host);
   if (host === getBaseDomain(c.env) || resolveRuntimeHost(request, c.env)) return null;
 
-  const customDomain = await loadCustomDomainMapping(c.env, host);
-  if (!customDomain) return null;
+  const customDomains = await loadCustomDomainRouteMappings(c.env, host, url.pathname);
+  if (customDomains.length === 0) return null;
 
   return (
     await resolveRuntimeRequest(request, c.env, optionalExecutionCtx(c))

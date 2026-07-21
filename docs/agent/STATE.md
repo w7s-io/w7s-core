@@ -14,6 +14,7 @@
 - Preserve suspension behavior for actual app/workload traffic and non-rate policy enforcement.
 - Keep platform health responses compatible with backend metadata expectations by exposing `branch`, `commitHash`, and `deployedAt`; `commitId` remains present for backward compatibility.
 - Native backend manifests support Cloudflare Email Service send bindings through `bindings.email`, uploaded as Worker `send_email` bindings.
+- `CNAME` entries can include path prefixes, such as `omattic.com/compress-video`; W7S strips that prefix before serving the app.
 
 ## Known Incident Context
 

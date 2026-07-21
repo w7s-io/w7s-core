@@ -24,3 +24,14 @@ Declarations are uploaded as Worker metadata bindings with `type: "send_email"`.
 - `allowedSenderAddresses`
 
 W7S does not onboard Email Service sending domains. The Cloudflare account must already have sending enabled for the sender domain before app code calls `env.EMAIL.send(...)`.
+
+## 2026-07-21: CNAME Supports Path-Based Custom Routes
+
+W7S accepts CNAME entries as either host-only routes or host plus path-prefix routes.
+
+Examples:
+
+- `www.example.com`
+- `omattic.com/compress-video`
+
+Path routes attach Cloudflare Worker routes like `omattic.com/compress-video*` and store path-aware KV route mappings. At runtime, W7S chooses the longest matching path prefix for the hostname and strips that prefix before dispatching to the app, so the target app can keep normal root-relative routes and assets.

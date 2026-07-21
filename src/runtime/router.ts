@@ -1,7 +1,7 @@
 import type { Env } from "../env";
 import { responseOutcome, writeAnalyticsEvent } from "../analytics";
 import {
-  loadCustomDomainMapping,
+  loadCustomDomainRouteMappings,
   loadDeploymentRecordWithCandidates,
   type DeploymentRecord
 } from "../storage/deployments";
@@ -35,6 +35,8 @@ const splitRepoPath = (path: string) => {
 };
 
 type RouteCandidate = {
+  orgSlug?: string;
+  environments?: string[];
   repoSlug: string;
   repoPath: string;
   mount: "repo-prefix" | "org-root" | "custom-domain";
@@ -67,6 +69,14 @@ const routeCandidates = (path: string, orgSlug: string) => {
   }
 
   return candidates;
+};
+
+const stripCustomDomainPathPrefix = (pathname: string, pathPrefix?: string) => {
+  const prefix = pathPrefix?.trim() || "/";
+  if (prefix === "/") return pathname || "/";
+  if (pathname === prefix) return "/";
+  if (pathname.startsWith(`${prefix}/`)) return pathname.slice(prefix.length) || "/";
+  return pathname || "/";
 };
 
 const shouldFallbackFromWorkerToStatic = (request: Request, response: Response) => {
@@ -281,39 +291,42 @@ export const resolveRuntimeRequest = async (
   const host = resolveRuntimeHost(request, env);
   if (host && isReservedPlatformPath(url.pathname)) return null;
 
-  const customDomain = host
+  const customDomains = host
     ? null
-    : await loadCustomDomainMapping(env, requestHost);
+    : await loadCustomDomainRouteMappings(env, requestHost, url.pathname);
   markTiming("host");
-  if (!host && !customDomain) return null;
+  if (!host && (!customDomains || customDomains.length === 0)) return null;
 
-  const orgSlug = host?.orgSlug ?? customDomain!.orgSlug;
-  const environments = host?.environments ?? [customDomain!.environment];
-  const candidates = customDomain
-    ? [
-        {
-          repoSlug: customDomain.repoSlug,
-          repoPath: url.pathname || "/",
-          mount: "custom-domain" as const
-        }
-      ]
+  const primaryCustomDomain = customDomains?.[0] ?? null;
+  const orgSlug = host?.orgSlug ?? primaryCustomDomain!.orgSlug;
+  const environments = host?.environments ?? [primaryCustomDomain!.environment];
+  const candidates = customDomains
+    ? customDomains.map((customDomain) => ({
+        orgSlug: customDomain.orgSlug,
+        environments: [customDomain.environment],
+        repoSlug: customDomain.repoSlug,
+        repoPath: stripCustomDomainPathPrefix(url.pathname || "/", customDomain.pathPrefix),
+        mount: "custom-domain" as const
+      }))
     : routeCandidates(url.pathname, orgSlug);
   if (candidates.length === 0) return null;
 
   for (const candidate of candidates) {
+    const candidateOrgSlug = candidate.orgSlug ?? orgSlug;
+    const candidateEnvironments = candidate.environments ?? environments;
     const deployment = await loadDeploymentRecordWithCandidates(
       env,
-      environments,
-      orgSlug,
+      candidateEnvironments,
+      candidateOrgSlug,
       candidate.repoSlug
     );
     markTiming("deployment");
     if (!deployment) continue;
-    if (!customDomain && deployment.routing?.defaultDomain === false) continue;
+    if (!customDomains && deployment.routing?.defaultDomain === false) continue;
 
     const suspended = await enforceAppNotSuspended(env, {
       environment: deployment.environment,
-      orgSlug,
+      orgSlug: candidateOrgSlug,
       repoSlug: candidate.repoSlug,
       request
     });
@@ -340,13 +353,13 @@ export const resolveRuntimeRequest = async (
 
     const workerTarget = deployment.targets.worker;
     let workerResponse: Response | null = null;
-    if (customDomain && workerTarget) {
+    if (customDomains && workerTarget) {
       workerResponse = await dispatchWorker({
         env,
         request,
         repoPath: candidate.repoPath,
         repoSlug: candidate.repoSlug,
-        orgSlug,
+        orgSlug: candidateOrgSlug,
         scriptName: workerTarget.scriptName
       });
       if (isRedirectResponse(workerResponse)) {
@@ -393,7 +406,7 @@ export const resolveRuntimeRequest = async (
         request,
         repoPath: candidate.repoPath,
         repoSlug: candidate.repoSlug,
-        orgSlug,
+        orgSlug: candidateOrgSlug,
         scriptName: workerTarget.scriptName
       });
       markTiming("worker");

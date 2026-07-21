@@ -339,13 +339,18 @@ x-w7s-schedule-cron: <cron>
 x-w7s-schedule-time: <scheduled-minute-iso>
 ```
 
-The `CNAME` file should contain one hostname, for example:
+The `CNAME` file can contain a hostname, or a hostname plus a path prefix, for example:
 
 ```text
 whereis.carlosguerrero.com
+omattic.com/compress-video
 ```
 
-W7S reads root `CNAME` first, then static-output and legacy `frontend` CNAME paths. The `main` branch uses the declared hostname exactly. Non-`main` branches prefix the sanitized branch name to the first label; for example, branch `dev` with `app.example.com` attaches `dev--app.example.com`. W7S stores a host mapping in KV and attaches a Cloudflare Worker route for `<hostname>/*` when the domain's Cloudflare zone is available to the W7S API token. The actual DNS record still has to resolve to Cloudflare. For a typical proxied Cloudflare zone, create a `CNAME` record for each host, including branch-prefixed hosts you want to use, that points at `w7s.cloud`.
+W7S reads root `CNAME` first, then static-output and legacy `frontend` CNAME paths. The `main` branch uses the declared hostname exactly. Non-`main` branches prefix the sanitized branch name to the first label; for example, branch `dev` with `app.example.com/docs` attaches `dev--app.example.com/docs`.
+
+W7S stores route mappings in KV and attaches Cloudflare Worker routes when the domain's Cloudflare zone is available to the W7S API token. Host-only entries attach `<hostname>/*`; path entries attach `<hostname>/<path>*`. Requests under a path entry are routed to the app with the path prefix stripped, so `omattic.com/compress-video/assets/app.js` is served from the app as `/assets/app.js`.
+
+The actual DNS record still has to resolve to Cloudflare. For a typical proxied Cloudflare zone, create a `CNAME` record for each host, including branch-prefixed hosts you want to use, that points at `w7s.cloud`.
 
 Custom-domain ownership is intentionally low-friction:
 

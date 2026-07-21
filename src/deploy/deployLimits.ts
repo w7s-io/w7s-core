@@ -31,7 +31,7 @@ const uniqueDurableObjectClasses = (manifest: AppManifest) =>
 export const validateDeployLimits = (params: {
   archive: DeployArchive;
   manifest: AppManifest;
-  customDomains: string[];
+  customDomains: unknown[];
   allowAssetOnly?: boolean;
 }) => {
   const errors: string[] = [];

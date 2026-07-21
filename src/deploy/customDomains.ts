@@ -2,7 +2,7 @@ import type { DeployArchive } from "./archive";
 import { readTextFile } from "./archive";
 import type { Env } from "../env";
 import { normalizeSlug } from "../names";
-import { loadCustomDomainMapping } from "../storage/deployments";
+import { loadCustomDomainRouteMapping } from "../storage/deployments";
 
 const CNAME_PATHS = [
   "CNAME",
@@ -21,6 +21,7 @@ const TXT_TOKEN_PATTERN =
 
 export type CustomDomainWarning = {
   hostname: string;
+  pathPrefix?: string;
   domain: string;
   txtName: string;
   txtValue: string;
@@ -30,6 +31,7 @@ export type CustomDomainWarning = {
 
 export type BlockedCustomDomain = {
   hostname: string;
+  pathPrefix?: string;
   domain: string;
   reason: "txt_allowlist_mismatch";
   txtName: string;
@@ -39,26 +41,61 @@ export type BlockedCustomDomain = {
 };
 
 export type CustomDomainPlan = {
-  attached: string[];
+  attached: CustomDomainRoute[];
   warnings: CustomDomainWarning[];
   blocked: BlockedCustomDomain[];
 };
 
-const normalizeHostname = (value: string) => {
+export type CustomDomainRoute = {
+  hostname: string;
+  pathPrefix: string;
+};
+
+export const customDomainRouteDisplay = (route: CustomDomainRoute) =>
+  route.pathPrefix === "/" ? route.hostname : `${route.hostname}${route.pathPrefix}`;
+
+const normalizePathPrefix = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "/") return "/";
+  let pathname: string;
+  try {
+    pathname = new URL(`https://w7s.invalid${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`).pathname;
+  } catch {
+    throw new Error(`Invalid custom domain path in CNAME file: ${value}`);
+  }
+  const normalized = pathname.replace(/\/+$/g, "") || "/";
+  if (
+    normalized !== "/" &&
+    (normalized.includes("//") || normalized.split("/").some((segment) => segment === "." || segment === ".."))
+  ) {
+    throw new Error(`Invalid custom domain path in CNAME file: ${value}`);
+  }
+  return normalized;
+};
+
+const normalizeCustomDomainRoute = (value: string): CustomDomainRoute | null => {
   let candidate = value.trim().toLowerCase();
   if (!candidate) return null;
+  let hostname: string;
+  let pathPrefix = "/";
   if (/^https?:\/\//i.test(candidate)) {
-    candidate = new URL(candidate).hostname;
+    const url = new URL(candidate);
+    hostname = url.hostname;
+    pathPrefix = normalizePathPrefix(url.pathname);
+  } else {
+    const slashIndex = candidate.indexOf("/");
+    hostname = slashIndex === -1 ? candidate : candidate.slice(0, slashIndex);
+    pathPrefix = slashIndex === -1 ? "/" : normalizePathPrefix(candidate.slice(slashIndex));
   }
-  candidate = candidate.replace(/\.$/, "");
-  if (!HOSTNAME_PATTERN.test(candidate)) {
+  hostname = hostname.replace(/\.$/, "");
+  if (!HOSTNAME_PATTERN.test(hostname)) {
     throw new Error(`Invalid custom domain in CNAME file: ${value}`);
   }
-  return candidate;
+  return { hostname, pathPrefix };
 };
 
 export const readCustomDomains = (archive: DeployArchive) => {
-  const hostnames = new Set<string>();
+  const routes = new Map<string, CustomDomainRoute>();
   for (const path of CNAME_PATHS) {
     const text = readTextFile(archive, path);
     if (!text) continue;
@@ -67,26 +104,29 @@ export const readCustomDomains = (archive: DeployArchive) => {
       .map((line) => line.trim())
       .filter((line) => line && !line.startsWith("#"));
     for (const line of lines) {
-      const hostname = normalizeHostname(line);
-      if (hostname) hostnames.add(hostname);
+      const route = normalizeCustomDomainRoute(line);
+      if (route) routes.set(customDomainRouteDisplay(route), route);
     }
   }
-  return [...hostnames];
+  return [...routes.values()];
 };
 
-export const branchCustomDomain = (hostname: string, branchPrefix: string) => {
+export const branchCustomDomain = (route: CustomDomainRoute, branchPrefix: string) => {
   const prefix = branchPrefix.trim().toLowerCase();
-  const labels = hostname.split(".");
+  const labels = route.hostname.split(".");
   const firstLabel = labels[0];
   if (!prefix || !firstLabel) {
-    throw new Error(`Invalid branch custom domain for ${hostname}.`);
+    throw new Error(`Invalid branch custom domain for ${customDomainRouteDisplay(route)}.`);
   }
   labels[0] = `${prefix}--${firstLabel}`;
   const candidate = labels.join(".");
   if (!HOSTNAME_PATTERN.test(candidate)) {
     throw new Error(`Invalid branch custom domain ${candidate} derived from CNAME file.`);
   }
-  return candidate;
+  return {
+    hostname: candidate,
+    pathPrefix: route.pathPrefix
+  };
 };
 
 const cfRequest = async (env: Env, method: string, path: string, body?: unknown) => {
@@ -205,7 +245,7 @@ const isAuthorizedByAllowlist = (params: {
 
 export const planCustomDomainClaims = async (params: {
   env: Env;
-  hostnames: string[];
+  routes: CustomDomainRoute[];
   orgSlug: string;
   repoSlug: string;
 }) => {
@@ -217,21 +257,23 @@ export const planCustomDomainClaims = async (params: {
   const orgSlug = normalizeSlug(params.orgSlug);
   const repoSlug = normalizeSlug(params.repoSlug);
 
-  for (const hostname of params.hostnames) {
+  for (const route of params.routes) {
+    const { hostname, pathPrefix } = route;
     const zone = await findZoneForHostname(params.env, hostname);
     const txtName = verificationTxtName(zone.name);
     const txtValue = repoTxtValue(orgSlug, repoSlug);
-    const existing = await loadCustomDomainMapping(params.env, hostname);
+    const existing = await loadCustomDomainRouteMapping(params.env, hostname, pathPrefix);
     const sameRepo = existing?.orgSlug === orgSlug && existing.repoSlug === repoSlug;
     const txt = await lookupTxtAllowlist(txtName);
 
     if (txt.hasTxt) {
       if (isAuthorizedByAllowlist({ allowlist: txt.allowlist, orgSlug, repoSlug })) {
-        plan.attached.push(hostname);
+        plan.attached.push(route);
         continue;
       }
       plan.blocked.push({
         hostname,
+        ...(pathPrefix !== "/" ? { pathPrefix } : {}),
         domain: zone.name,
         reason: "txt_allowlist_mismatch",
         txtName,
@@ -242,9 +284,10 @@ export const planCustomDomainClaims = async (params: {
       continue;
     }
 
-    plan.attached.push(hostname);
+    plan.attached.push(route);
     plan.warnings.push({
       hostname,
+      ...(pathPrefix !== "/" ? { pathPrefix } : {}),
       domain: zone.name,
       txtName,
       txtValue,
@@ -259,13 +302,16 @@ export const planCustomDomainClaims = async (params: {
   return plan;
 };
 
-export const attachCustomDomainRoutes = async (env: Env, hostnames: string[]) => {
+const customDomainRoutePattern = (route: CustomDomainRoute) =>
+  route.pathPrefix === "/" ? `${route.hostname}/*` : `${route.hostname}${route.pathPrefix}*`;
+
+export const attachCustomDomainRoutes = async (env: Env, routesToAttach: CustomDomainRoute[]) => {
   const workerName = env.W7S_WORKER_NAME?.trim() || DEFAULT_WORKER_NAME;
   const attached: Array<{ hostname: string; pattern: string; zoneId: string; zoneName: string }> = [];
 
-  for (const hostname of hostnames) {
-    const zone = await findZoneForHostname(env, hostname);
-    const pattern = `${hostname}/*`;
+  for (const route of routesToAttach) {
+    const zone = await findZoneForHostname(env, route.hostname);
+    const pattern = customDomainRoutePattern(route);
     const routesResult = await cfRequest(
       env,
       "GET",
@@ -296,7 +342,7 @@ export const attachCustomDomainRoutes = async (env: Env, hostnames: string[]) =>
     }
 
     attached.push({
-      hostname,
+      hostname: route.hostname,
       pattern,
       zoneId: zone.id,
       zoneName: zone.name
