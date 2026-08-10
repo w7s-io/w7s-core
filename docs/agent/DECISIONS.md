@@ -35,3 +35,11 @@ Examples:
 - `omattic.com/compress-video`
 
 Path routes attach Cloudflare Worker routes like `omattic.com/compress-video*` and store path-aware KV route mappings. At runtime, W7S chooses the longest matching path prefix for the hostname and strips that prefix before dispatching to the app, so the target app can keep normal root-relative routes and assets.
+
+## 2026-08-10: Front-Door Path Authority Is Advisory By Default
+
+W7S keeps path-based custom-domain routing low-friction. A repo can attach a path route under a hostname owned by another repo without a blocking front-door policy, so existing deployments continue to work by default.
+
+Root hostname repos can declare `routing.customDomainAuthority` in `w7s.json` to explicitly allow delegated path prefixes by repository. When a path route is not covered by that optional authority, the deploy response returns a warning instead of blocking the deployment.
+
+Rationale: W7S should support an Omattic-style root site that acts as the security front door for path-mounted tools, but guard adoption should be incremental. Warnings promote the safer topology without breaking path routing during migration.

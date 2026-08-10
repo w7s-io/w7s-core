@@ -114,7 +114,29 @@ https://whereis.carlosguerrero.com/api/profile
 https://whereis.carlosguerrero.com/assets/app.js
 ```
 
+Custom domain entries can include path prefixes, for example `www.omattic.com/compress-video`. Runtime lookup chooses the longest matching path prefix for the host and strips that prefix before dispatching to the target app. KV route lists are merged per host so root host redeploys preserve sibling path mappings owned by other repos.
+
 Deploy-time custom-domain claims are soft-verified. Any repo can claim a hostname without TXT, and the latest deployment for that exact hostname replaces previous unverified claims. W7S warns the caller to add `_w7s.<zone>`. If that TXT exists, it must list the GitHub owner or exact repo, for example `guerrerocarlos` or `guerrerocarlos/whereis`; TXT authorization then decides whether ownership can move.
+
+For path routes under a hostname that already has a root mapping, the root repo can declare optional front-door authority in `w7s.json`:
+
+```json
+{
+  "routing": {
+    "customDomainAuthority": {
+      "domains": ["www.omattic.com"],
+      "allow": [
+        {
+          "pathPrefix": "/compress-video",
+          "repository": "omattic/video-omattic-com"
+        }
+      ]
+    }
+  }
+}
+```
+
+Path routes work without this declaration. Deploy responses include a warning until the root repo explicitly allows the delegated path.
 
 Deployments can opt out of default `*.w7s.cloud` routing in `w7s.json`:
 

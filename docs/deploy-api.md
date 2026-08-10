@@ -350,12 +350,16 @@ W7S reads root `CNAME` first, then static-output and legacy `frontend` CNAME pat
 
 W7S stores route mappings in KV and attaches Cloudflare Worker routes when the domain's Cloudflare zone is available to the W7S API token. Host-only entries attach `<hostname>/*`; path entries attach `<hostname>/<path>*`. Requests under a path entry are routed to the app with the path prefix stripped, so `omattic.com/compress-video/assets/app.js` is served from the app as `/assets/app.js`.
 
+Path mappings are merged per hostname. A redeploy of the root hostname app keeps sibling path routes from other repos, so a root `www.omattic.com` deploy does not remove `www.omattic.com/compress-video`.
+
 The actual DNS record still has to resolve to Cloudflare. For a typical proxied Cloudflare zone, create a `CNAME` record for each host, including branch-prefixed hosts you want to use, that points at `w7s.cloud`.
 
 Custom-domain ownership is intentionally low-friction:
 
 - a repo can attach a hostname without a TXT record;
 - W7S returns `customDomainWarnings` recommending a TXT allowlist for future safety;
+- path routes under another repo's root hostname still attach by default;
+- W7S returns a front-door warning when that root hostname repo has not explicitly allowed the path route;
 - if `_w7s.<zone>` exists, only GitHub owners or repos listed in that TXT record can use hostnames on that zone;
 - if no TXT allowlist exists, the latest deployment wins and replaces any previous unverified hostname claim.
 
@@ -367,6 +371,26 @@ Value: guerrerocarlos
 ```
 
 The value is comma-separated. `guerrerocarlos` allows any repo under that owner. `guerrerocarlos/whereis` allows only that repo. This also supports mixed values such as `guerrerocarlos/whereis,omattic`.
+
+Root hostname repos can make path delegation explicit in `w7s.json`:
+
+```json
+{
+  "routing": {
+    "customDomainAuthority": {
+      "domains": ["www.omattic.com"],
+      "allow": [
+        {
+          "pathPrefix": "/compress-video",
+          "repository": "omattic/video-omattic-com"
+        }
+      ]
+    }
+  }
+}
+```
+
+This authority is optional. Without it, path routes continue to work, but deploy responses include a warning that recommends adding the allowlist.
 
 ## Native Backend Rules
 

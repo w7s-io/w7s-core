@@ -7,6 +7,7 @@ import {
   loadDeploymentRecord,
   loadQueueMapping,
   storeCustomDomainMappings,
+  storeDeploymentRecord,
   type DeploymentRecord
 } from "../storage/deployments";
 import { recordUsageEvent } from "../usage";
@@ -502,6 +503,155 @@ describe("deploy API", () => {
     expect(workerRoutePatterns).toEqual(["omattic.com/compress-video*"]);
     const record = await loadDeploymentRecord(env, "production", "omattic", "video");
     expect(record?.customDomains).toEqual(["omattic.com/compress-video"]);
+  });
+
+  it("warns when a path route is not covered by the hostname front-door allowlist", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.startsWith("https://api.github.com/repos/")) {
+          return Response.json({ full_name: "omattic/video-omattic-com" });
+        }
+        if (url === "https://api.cloudflare.com/client/v4/zones?per_page=100") {
+          return Response.json({
+            success: true,
+            result: [{ id: "zone-1", name: "omattic.com" }]
+          });
+        }
+        if (url.startsWith("https://cloudflare-dns.com/dns-query")) {
+          return Response.json({});
+        }
+        if (url.includes("/workers/routes") && init?.method === "GET") {
+          return Response.json({ success: true, result: [] });
+        }
+        if (url.includes("/workers/routes") && init?.method === "POST") {
+          return Response.json({ success: true, result: { id: "route-1" } });
+        }
+        return Response.json({ success: true, result: {} });
+      })
+    );
+    const env = createTestEnv({
+      CLOUDFLARE_API_TOKEN: "cf-token"
+    });
+    const rootRecord: DeploymentRecord = {
+      version: 1,
+      orgSlug: "omattic",
+      repoSlug: "v2-omattic-com",
+      environment: "production",
+      repository: "omattic/v2-omattic-com",
+      branch: "main",
+      commitSha: "root",
+      deployedAt: new Date().toISOString(),
+      targets: {}
+    };
+    await storeDeploymentRecord(env, rootRecord);
+    await storeCustomDomainMappings(env, rootRecord, ["www.omattic.com"]);
+
+    const response = await app.fetch(
+      deployRequest(
+        {
+          CNAME: "www.omattic.com/compress-video\n",
+          "dist/client/index.html": "<h1>Video compressor</h1>"
+        },
+        {
+          "x-github-repository": "omattic/video-omattic-com"
+        }
+      ),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as {
+      data?: {
+        customDomainWarnings?: Array<{ frontDoorRepository?: string; message?: string }>;
+      };
+    };
+    expect(body.data?.customDomainWarnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          frontDoorRepository: "omattic/v2-omattic-com",
+          message: expect.stringContaining("front-door allowlist")
+        })
+      ])
+    );
+  });
+
+  it("does not warn when a path route is covered by the hostname front-door allowlist", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.startsWith("https://api.github.com/repos/")) {
+          return Response.json({ full_name: "omattic/video-omattic-com" });
+        }
+        if (url === "https://api.cloudflare.com/client/v4/zones?per_page=100") {
+          return Response.json({
+            success: true,
+            result: [{ id: "zone-1", name: "omattic.com" }]
+          });
+        }
+        if (url.startsWith("https://cloudflare-dns.com/dns-query")) {
+          return Response.json({});
+        }
+        if (url.includes("/workers/routes") && init?.method === "GET") {
+          return Response.json({ success: true, result: [] });
+        }
+        if (url.includes("/workers/routes") && init?.method === "POST") {
+          return Response.json({ success: true, result: { id: "route-1" } });
+        }
+        return Response.json({ success: true, result: {} });
+      })
+    );
+    const env = createTestEnv({
+      CLOUDFLARE_API_TOKEN: "cf-token"
+    });
+    const rootRecord: DeploymentRecord = {
+      version: 1,
+      orgSlug: "omattic",
+      repoSlug: "v2-omattic-com",
+      environment: "production",
+      repository: "omattic/v2-omattic-com",
+      branch: "main",
+      commitSha: "root",
+      deployedAt: new Date().toISOString(),
+      routing: {
+        defaultDomain: true,
+        customDomainAuthority: {
+          domains: ["www.omattic.com"],
+          allow: [
+            {
+              pathPrefix: "/compress-video",
+              repository: "omattic/video-omattic-com"
+            }
+          ]
+        }
+      },
+      targets: {}
+    };
+    await storeDeploymentRecord(env, rootRecord);
+    await storeCustomDomainMappings(env, rootRecord, ["www.omattic.com"]);
+
+    const response = await app.fetch(
+      deployRequest(
+        {
+          CNAME: "www.omattic.com/compress-video\n",
+          "dist/client/index.html": "<h1>Video compressor</h1>"
+        },
+        {
+          "x-github-repository": "omattic/video-omattic-com"
+        }
+      ),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as {
+      data?: {
+        customDomainWarnings?: Array<{ frontDoorRepository?: string }>;
+      };
+    };
+    expect(body.data?.customDomainWarnings?.some((warning) => warning.frontDoorRepository)).toBe(false);
   });
 
   it("attaches branch-prefixed custom domains on non-main branches", async () => {

@@ -2,7 +2,12 @@ import type { DeployArchive } from "./archive";
 import { readTextFile } from "./archive";
 import type { Env } from "../env";
 import { normalizeSlug } from "../names";
-import { loadCustomDomainRouteMapping } from "../storage/deployments";
+import {
+  loadCustomDomainMapping,
+  loadCustomDomainRouteMapping,
+  loadDeploymentRecord,
+  type DeploymentRecord
+} from "../storage/deployments";
 
 const CNAME_PATHS = [
   "CNAME",
@@ -26,6 +31,7 @@ export type CustomDomainWarning = {
   txtName: string;
   txtValue: string;
   currentRepository?: string;
+  frontDoorRepository?: string;
   message: string;
 };
 
@@ -243,6 +249,72 @@ const isAuthorizedByAllowlist = (params: {
   return params.allowlist.includes(params.orgSlug) || params.allowlist.includes(repoEntry);
 };
 
+const pathPrefixMatches = (allowedPrefix: string, requestedPrefix: string) =>
+  allowedPrefix === requestedPrefix ||
+  (allowedPrefix !== "/" && requestedPrefix.startsWith(`${allowedPrefix}/`));
+
+const hasFrontDoorPathAuthorization = (
+  record: DeploymentRecord | null,
+  params: {
+    hostname: string;
+    pathPrefix: string;
+    repository: string;
+  }
+) => {
+  const authority = record?.routing?.customDomainAuthority;
+  if (!authority) return false;
+  const hostname = params.hostname.trim().toLowerCase();
+  const repository = params.repository.trim().toLowerCase();
+  return (
+    authority.domains.map((domain) => domain.trim().toLowerCase()).includes(hostname) &&
+    authority.allow.some(
+      (entry) =>
+        entry.repository.trim().toLowerCase() === repository &&
+        pathPrefixMatches(entry.pathPrefix, params.pathPrefix)
+    )
+  );
+};
+
+const frontDoorDelegationWarning = async (params: {
+  env: Env;
+  hostname: string;
+  pathPrefix: string;
+  domain: string;
+  txtName: string;
+  txtValue: string;
+  orgSlug: string;
+  repoSlug: string;
+}): Promise<CustomDomainWarning | null> => {
+  if (params.pathPrefix === "/") return null;
+  const rootMapping = await loadCustomDomainMapping(params.env, params.hostname);
+  if (!rootMapping || rootMapping.repository === repoTxtValue(params.orgSlug, params.repoSlug)) return null;
+  const rootRecord = await loadDeploymentRecord(
+    params.env,
+    rootMapping.environment,
+    rootMapping.orgSlug,
+    rootMapping.repoSlug
+  );
+  if (
+    hasFrontDoorPathAuthorization(rootRecord, {
+      hostname: params.hostname,
+      pathPrefix: params.pathPrefix,
+      repository: repoTxtValue(params.orgSlug, params.repoSlug)
+    })
+  ) {
+    return null;
+  }
+  return {
+    hostname: params.hostname,
+    pathPrefix: params.pathPrefix,
+    domain: params.domain,
+    txtName: params.txtName,
+    txtValue: params.txtValue,
+    currentRepository: rootMapping.repository,
+    frontDoorRepository: rootMapping.repository,
+    message: `Path route ${params.hostname}${params.pathPrefix} is attached without an explicit front-door allowlist from ${rootMapping.repository}. Add routing.customDomainAuthority.allow in ${rootMapping.repository}'s w7s.json to make this delegation explicit.`
+  };
+};
+
 export const planCustomDomainClaims = async (params: {
   env: Env;
   routes: CustomDomainRoute[];
@@ -265,10 +337,21 @@ export const planCustomDomainClaims = async (params: {
     const existing = await loadCustomDomainRouteMapping(params.env, hostname, pathPrefix);
     const sameRepo = existing?.orgSlug === orgSlug && existing.repoSlug === repoSlug;
     const txt = await lookupTxtAllowlist(txtName);
+    const frontDoorWarning = await frontDoorDelegationWarning({
+      env: params.env,
+      hostname,
+      pathPrefix,
+      domain: zone.name,
+      txtName,
+      txtValue,
+      orgSlug,
+      repoSlug
+    });
 
     if (txt.hasTxt) {
       if (isAuthorizedByAllowlist({ allowlist: txt.allowlist, orgSlug, repoSlug })) {
         plan.attached.push(route);
+        if (frontDoorWarning) plan.warnings.push(frontDoorWarning);
         continue;
       }
       plan.blocked.push({
@@ -285,6 +368,7 @@ export const planCustomDomainClaims = async (params: {
     }
 
     plan.attached.push(route);
+    if (frontDoorWarning) plan.warnings.push(frontDoorWarning);
     plan.warnings.push({
       hostname,
       ...(pathPrefix !== "/" ? { pathPrefix } : {}),

@@ -59,6 +59,16 @@ export type WorkflowDeclaration = {
   path: string;
 };
 
+export type CustomDomainPathAllowDeclaration = {
+  pathPrefix: string;
+  repository: string;
+};
+
+export type CustomDomainAuthorityDeclaration = {
+  domains: string[];
+  allow: CustomDomainPathAllowDeclaration[];
+};
+
 export type AppManifest = {
   bindings: {
     kv: KvBindingDeclaration[];
@@ -85,6 +95,7 @@ export type AppManifest = {
   };
   routing: {
     defaultDomain: boolean;
+    customDomainAuthority?: CustomDomainAuthorityDeclaration;
   };
 };
 
@@ -375,6 +386,65 @@ const parseGitHubAllowList = (value: unknown, field: string) => {
   });
 };
 
+const normalizeManifestPathPrefix = (value: unknown, field: string) => {
+  if (typeof value !== "string") throw new Error(`${field} must be a string.`);
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "/") return "/";
+  let pathname: string;
+  try {
+    pathname = new URL(`https://w7s.invalid${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`).pathname;
+  } catch {
+    throw new Error(`${field} must be a valid URL path prefix.`);
+  }
+  const normalized = pathname.replace(/\/+$/g, "") || "/";
+  if (
+    normalized !== "/" &&
+    (normalized.includes("//") || normalized.split("/").some((segment) => segment === "." || segment === ".."))
+  ) {
+    throw new Error(`${field} must be a valid URL path prefix.`);
+  }
+  return normalized;
+};
+
+const parseCustomDomainAuthority = (value: unknown) => {
+  if (value === undefined) return undefined;
+  const record = asRecord(value, "routing.customDomainAuthority");
+  const rawDomains = record.domains;
+  if (!Array.isArray(rawDomains)) {
+    throw new Error("routing.customDomainAuthority.domains must be an array.");
+  }
+  const domains = rawDomains.map((entry, index) => {
+    if (typeof entry !== "string") throw new Error(`routing.customDomainAuthority.domains[${index}] must be a string.`);
+    const normalized = entry.trim().toLowerCase().replace(/\.$/, "");
+    if (!normalized || normalized.includes("/") || normalized.includes("*")) {
+      throw new Error(`routing.customDomainAuthority.domains[${index}] must be a hostname.`);
+    }
+    return normalized;
+  });
+  const rawAllow = record.allow;
+  if (!Array.isArray(rawAllow)) {
+    throw new Error("routing.customDomainAuthority.allow must be an array.");
+  }
+  const allow = rawAllow.map((entry, index) => {
+    const allowRecord = asRecord(entry, `routing.customDomainAuthority.allow[${index}]`);
+    const repository = parseGitHubAllowList(
+      [allowRecord.repository],
+      `routing.customDomainAuthority.allow[${index}].repository`
+    )[0];
+    if (!repository.includes("/")) {
+      throw new Error(`routing.customDomainAuthority.allow[${index}].repository must be owner/repo.`);
+    }
+    return {
+      pathPrefix: normalizeManifestPathPrefix(
+        allowRecord.pathPrefix ?? allowRecord.path_prefix,
+        `routing.customDomainAuthority.allow[${index}].pathPrefix`
+      ),
+      repository
+    };
+  });
+  return { domains, allow };
+};
+
 const parseQueues = (value: unknown): QueueDeclaration[] => {
   if (value === undefined) return [];
   if (!Array.isArray(value)) throw new Error("queues must be an array.");
@@ -475,11 +545,16 @@ const parseRouting = (value: unknown) => {
   if (value === undefined) return { defaultDomain: true };
   const record = asRecord(value, "routing");
   const defaultDomain = record.defaultDomain ?? record.default_domain;
-  if (defaultDomain === undefined) return { defaultDomain: true };
-  if (typeof defaultDomain !== "boolean") {
+  if (defaultDomain !== undefined && typeof defaultDomain !== "boolean") {
     throw new Error("routing.defaultDomain must be a boolean.");
   }
-  return { defaultDomain };
+  const customDomainAuthority = parseCustomDomainAuthority(
+    record.customDomainAuthority ?? record.custom_domain_authority
+  );
+  return {
+    defaultDomain: defaultDomain ?? true,
+    ...(customDomainAuthority ? { customDomainAuthority } : {})
+  };
 };
 
 export const readAppManifest = (archive: DeployArchive) => {

@@ -15,6 +15,8 @@
 - Keep platform health responses compatible with backend metadata expectations by exposing `branch`, `commitHash`, and `deployedAt`; `commitId` remains present for backward compatibility.
 - Native backend manifests support Cloudflare Email Service send bindings through `bindings.email`, uploaded as Worker `send_email` bindings.
 - `CNAME` entries can include path prefixes, such as `omattic.com/compress-video`; W7S strips that prefix before serving the app.
+- Custom-domain path mappings are merged per hostname. A root hostname redeploy preserves sibling path routes from other repos, such as `www.omattic.com/compress-video`.
+- Front-door custom-domain authority is optional. Path routes work by default, and deploy responses warn when a path under a root hostname is not explicitly allowed by that root repo's `routing.customDomainAuthority`.
 
 ## Known Incident Context
 

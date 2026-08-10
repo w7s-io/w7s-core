@@ -437,8 +437,8 @@ export const handleDeploy = async (c: HonoContext) => {
     commitSha,
     deployedAt,
     ...(attachedCustomDomains.length > 0 ? { customDomains: attachedCustomDomains } : {}),
-    ...(!defaultDomainEnabled
-      ? { routing: { defaultDomain: false } }
+    ...(!defaultDomainEnabled || appManifest.routing.customDomainAuthority
+      ? { routing: appManifest.routing }
       : {}),
     ...(deploymentBindings ? { bindings: deploymentBindings } : {}),
     ...(deploymentAi ? { ai: deploymentAi } : {}),

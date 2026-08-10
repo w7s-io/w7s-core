@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { app } from "../worker";
 import { createTestEnv, MemoryAnalyticsEngine } from "./mocks";
 import {
+  replaceCustomDomainMappings,
   storeCustomDomainMappings,
   storeDeploymentRecord,
   storeStaticSiteManifest
@@ -744,6 +745,51 @@ describe("runtime router", () => {
 
     expect(rootResponse.status).toBe(200);
     expect(await rootResponse.text()).toContain("Omattic home");
+    expect(pathResponse.status).toBe(200);
+    expect(await pathResponse.text()).toContain("Video compressor");
+  });
+
+  it("keeps custom domain path mappings after the host root repo redeploys", async () => {
+    const env = createTestEnv();
+    const rootRecord = await storeStaticDeployment(env, {
+      orgSlug: "omattic",
+      repoSlug: "v2-omattic-com",
+      files: {
+        "index.html": {
+          body: "<h1>Omattic home</h1>",
+          contentType: "text/html; charset=utf-8"
+        }
+      }
+    });
+    const pathRecord = await storeStaticDeployment(env, {
+      orgSlug: "omattic",
+      repoSlug: "video-omattic-com",
+      files: {
+        "index.html": {
+          body: "<h1>Video compressor</h1>",
+          contentType: "text/html; charset=utf-8"
+        }
+      }
+    });
+
+    await replaceCustomDomainMappings(env, rootRecord, ["www.omattic.com"]);
+    await replaceCustomDomainMappings(env, pathRecord, [
+      {
+        hostname: "www.omattic.com",
+        pathPrefix: "/compress-video"
+      }
+    ]);
+    await replaceCustomDomainMappings(env, rootRecord, ["www.omattic.com"]);
+
+    const pathResponse = await app.fetch(
+      new Request("https://www.omattic.com/compress-video", {
+        headers: {
+          host: "www.omattic.com"
+        }
+      }),
+      env
+    );
+
     expect(pathResponse.status).toBe(200);
     expect(await pathResponse.text()).toContain("Video compressor");
   });

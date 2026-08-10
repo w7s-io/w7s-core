@@ -32,6 +32,13 @@ export type DeploymentRecord = {
   customDomains?: string[];
   routing?: {
     defaultDomain: boolean;
+    customDomainAuthority?: {
+      domains: string[];
+      allow: Array<{
+        pathPrefix: string;
+        repository: string;
+      }>;
+    };
   };
   bindings?: DeploymentBindings;
   ai?: DeploymentAiConfig;
@@ -371,6 +378,19 @@ const pathMatchesPrefix = (pathname: string, pathPrefix?: string) => {
 const sortRouteMappings = (mappings: CustomDomainMapping[]) =>
   [...mappings].sort((a, b) => normalizeCustomDomainPathPrefix(b.pathPrefix).length - normalizeCustomDomainPathPrefix(a.pathPrefix).length);
 
+const isCustomDomainMapping = (
+  mapping: Partial<CustomDomainMapping>,
+  hostname?: string
+): mapping is CustomDomainMapping =>
+  mapping.version === 1 &&
+  typeof mapping.hostname === "string" &&
+  (!hostname || mapping.hostname === hostname) &&
+  typeof mapping.orgSlug === "string" &&
+  typeof mapping.repoSlug === "string" &&
+  typeof mapping.environment === "string" &&
+  typeof mapping.repository === "string" &&
+  typeof mapping.deployedAt === "string";
+
 export const queueMappingKey = (queueName: string) =>
   `queue_mapping:v1:${queueName.trim().toLowerCase()}`;
 
@@ -653,11 +673,26 @@ export const storeCustomDomainMappings = async (
   }
 
   await Promise.all(
-    [...routesByHostname.entries()].map(([hostname, mappings]) => {
+    [...routesByHostname.entries()].map(async ([hostname, mappings]) => {
       const key = customDomainKey(hostname);
       const routesKey = customDomainRoutesKey(hostname);
       const cacheKey = scopedRuntimeCacheKey(env, key);
-      const sortedMappings = sortRouteMappings(mappings);
+      const incomingRouteKeys = new Set(
+        mappings.map((mapping) => routeMappingKey(mapping.hostname, mapping.pathPrefix))
+      );
+      const raw = await env.DEPLOYMENTS_KV.get(routesKey, "json");
+      const existingMappings = Array.isArray(raw)
+        ? (raw as Partial<CustomDomainMapping>[]).filter((mapping): mapping is CustomDomainMapping =>
+            isCustomDomainMapping(mapping, hostname) &&
+            !incomingRouteKeys.has(routeMappingKey(mapping.hostname, mapping.pathPrefix)) &&
+            !(
+              mapping.orgSlug === record.orgSlug &&
+              mapping.repoSlug === record.repoSlug &&
+              mapping.environment === record.environment
+            )
+          )
+        : [];
+      const sortedMappings = sortRouteMappings([...existingMappings, ...mappings]);
       const rootMapping = sortedMappings.find((mapping) => normalizeCustomDomainPathPrefix(mapping.pathPrefix) === "/");
       if (rootMapping) {
         writeRuntimeCache(
@@ -667,13 +702,16 @@ export const storeCustomDomainMappings = async (
           CUSTOM_DOMAIN_CACHE_TTL_MS
         );
       }
-      return Promise.all([
+      if (!rootMapping) {
+        writeRuntimeCache(customDomainCache, cacheKey, null, CUSTOM_DOMAIN_CACHE_TTL_MS);
+      }
+      await Promise.all([
         rootMapping
           ? env.DEPLOYMENTS_KV.put(key, JSON.stringify(rootMapping))
-          : Promise.resolve(),
+          : env.DEPLOYMENTS_KV.delete(key),
         rootMapping
           ? writeMetadataEdgeCache(key, rootMapping, CUSTOM_DOMAIN_CACHE_TTL_MS)
-          : Promise.resolve(),
+          : deleteMetadataEdgeCache(key),
         env.DEPLOYMENTS_KV.put(routesKey, JSON.stringify(sortedMappings))
       ]);
     })
@@ -788,7 +826,7 @@ export const loadCustomDomainMapping = async (env: Env, hostname: string) => {
     return null;
   }
   const mapping = raw as Partial<CustomDomainMapping>;
-  if (mapping.version !== 1 || typeof mapping.hostname !== "string") {
+  if (!isCustomDomainMapping(mapping)) {
     writeRuntimeCache(
       customDomainCache,
       cacheKey,
@@ -798,7 +836,7 @@ export const loadCustomDomainMapping = async (env: Env, hostname: string) => {
     await writeMetadataEdgeCache(key, null, CUSTOM_DOMAIN_CACHE_TTL_MS);
     return null;
   }
-  const customDomain = mapping as CustomDomainMapping;
+  const customDomain = mapping;
   writeRuntimeCache(
     customDomainCache,
     cacheKey,
