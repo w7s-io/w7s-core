@@ -71,11 +71,11 @@ The response must expose `branch`, `commitHash`, and `deployedAt`.
 The hosted W7S ISO readiness workspace is:
 
 ```sh
-ls iso
+ls docs/iso
 ```
 
 Start with:
 
 ```sh
-sed -n '1,220p' iso/execution-plan.md
+sed -n '1,220p' docs/iso/execution-plan.md
 ```

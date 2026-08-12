@@ -46,6 +46,6 @@ Rationale: W7S should support an Omattic-style root site that acts as the securi
 
 ## 2026-08-11: ISO Readiness Plan Lives In W7S Core
 
-The ISO 27001, ISO 27018, and ISO 27701 readiness planning workspace lives under `iso/` in `w7s-core`.
+The ISO 27001, ISO 27018, and ISO 27701 readiness planning workspace lives under `docs/iso/` in `w7s-core`.
 
 Rationale: the plan is directly about hosted W7S core platform compliance and should live in the primary platform repository rather than only in the manager repository.
