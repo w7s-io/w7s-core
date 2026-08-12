@@ -13,14 +13,13 @@ Production repositories:
 - `w7s-io/w7s-core`
 - `w7s-io/account-w7s-io`
 - `w7s-io/docs`
-- `w7s-io/w7s-manager`
 
 Core providers:
 
 - Cloudflare
 - GitHub
 - Stripe
-- Telegram, for operational notifications and manager context
+- Telegram, only for hosted W7S operational notifications
 
 ## Data Categories
 

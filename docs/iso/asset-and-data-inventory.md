@@ -21,7 +21,6 @@ Purpose: define the first scoped inventory for hosted W7S ISO 27001, ISO 27018, 
 | W7S Core | `w7s.cloud` | Hosted W7S deploy API, runtime router, app dispatch, usage protection, logs, custom domains, native bindings, queues, schedules, workflows, AI, and status endpoints. | TBD | In scope | `wrangler.jsonc`, `.github/workflows/deploy.yml`, `README.md` |
 | Account W7S | `account.w7s.io` | Private billing authority for wallets, Stripe customers, prepaid credits, reservations, usage-event settlement, and Stripe webhook processing. | TBD | In scope | `/home/gnu/account-w7s-io/wrangler.jsonc`, `/home/gnu/account-w7s-io/docs/agent/STATE.md` |
 | W7S Docs | `w7s.io` | Public product, docs, security, privacy, pricing, and user-facing trust material. | TBD | In scope | `/home/gnu/docs/docs/agent/STATE.md`, `/home/gnu/docs/.github/workflows/deploy.yml` |
-| W7S Manager | internal manager repo | Durable W7S fleet context, worklogs, repo inventory, and Telegram binding metadata. | TBD | In scope for operating evidence | `/home/gnu/w7s-manager/docs/agent/STATE.md` |
 
 ## Production Repositories
 
@@ -30,7 +29,6 @@ Purpose: define the first scoped inventory for hosted W7S ISO 27001, ISO 27018, 
 | `w7s-io/w7s-core` | `/home/gnu/w7s-core` | Hosted platform control plane and runtime. | Primary scoped system. | TBD | Confirmed |
 | `w7s-io/account-w7s-io` | `/home/gnu/account-w7s-io` | Billing ledger and Stripe integration. | Supporting scoped system. | TBD | Confirmed |
 | `w7s-io/docs` | `/home/gnu/docs` | Public docs and trust-facing content. | Supporting scoped system. | TBD | Confirmed |
-| `w7s-io/w7s-manager` | `/home/gnu/w7s-manager` | Operational context, worklogs, and fleet inventory. | Evidence and operations support. | TBD | Confirmed |
 
 Needs verification:
 
@@ -123,7 +121,7 @@ Needs verification:
 | User Worker logs | Console output and uncaught exception metadata. | KV `app_log:v1:*` records and optional Analytics Engine. | Potential customer data if apps log PII. | Partial config: `W7S_LOG_RETENTION_SECONDS=604800`. | Needs final procedure |
 | Billing wallet data | GitHub owner login, owner type, wallet id, balance, ledger entries. | Account W7S D1. | Billing and account metadata. | Needs final policy | Needs final procedure |
 | Stripe references | Stripe customer id, checkout session id, webhook event id, payment metadata. | Stripe and Account W7S D1. | Payment metadata. Card data stays in Stripe. | Needs final policy | Needs final procedure |
-| Telegram notification metadata | Chat ids, deploy notification preferences, manager event metadata. | W7S Core KV and manager context. | Operational contact data. | Needs final policy | Needs final procedure |
+| Telegram notification metadata | Chat ids, deploy notification preferences, and hosted W7S event metadata. | W7S Core KV. | Operational contact data. | Needs final policy | Needs final procedure |
 | AI prompts and outputs | Requests to W7S AI binding and model responses when used by apps. | Runtime path, optional logs if app logs them. | Potential customer content or PII. | Needs final policy | Needs final procedure |
 | Email binding metadata | Email binding declarations and allowed sender/destination restrictions. | Deployment records and Worker upload metadata. | Configuration metadata. | Needs final policy | Needs final procedure |
 

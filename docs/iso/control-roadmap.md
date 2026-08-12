@@ -40,7 +40,6 @@
 - Document incident response.
 - Document backup and restore expectations.
 - Document log retention and access.
-- Keep monthly worklogs for billing and operating history.
 
 ## Supplier Management
 

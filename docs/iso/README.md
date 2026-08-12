@@ -22,13 +22,14 @@ Initial scope is intentionally tight:
 - GitHub Actions based deploy path.
 - Cloudflare Workers, D1, KV, R2, Dispatch Namespace, Workers AI, Queues, Workflows, Analytics Engine, and Email Service bindings used by hosted W7S.
 - GitHub organization repositories and production secrets used to operate hosted W7S.
-- Telegram manager notifications and operational context used by the W7S agent fleet.
+- Telegram notification metadata used by hosted W7S for deploy, usage, suspension, and payment-request alerts.
 
 Out of initial scope:
 
 - Customer application code deployed on W7S, except for platform responsibilities around isolation, routing, logs, metadata, and deletion.
 - Self-hosted W7S Metal installations operated by customers.
 - Experimental local-only repos that are not part of hosted production.
+- Local agent-management folders, because they are personal operating context and not part of hosted W7S.
 
 ## Folder Map
 
