@@ -17,6 +17,7 @@
 - `CNAME` entries can include path prefixes, such as `omattic.com/compress-video`; W7S strips that prefix before serving the app.
 - Custom-domain path mappings are merged per hostname. A root hostname redeploy preserves sibling path routes from other repos, such as `www.omattic.com/compress-video`.
 - Front-door custom-domain authority is optional. Path routes work by default, and deploy responses warn when a path under a root hostname is not explicitly allowed by that root repo's `routing.customDomainAuthority`.
+- ISO readiness planning for hosted W7S lives in `iso/`.
 
 ## Known Incident Context
 

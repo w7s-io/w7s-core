@@ -65,3 +65,17 @@ curl -fsS https://w7s.io/health
 ```
 
 The response must expose `branch`, `commitHash`, and `deployedAt`.
+
+## ISO Planning
+
+The hosted W7S ISO readiness workspace is:
+
+```sh
+ls iso
+```
+
+Start with:
+
+```sh
+sed -n '1,220p' iso/execution-plan.md
+```

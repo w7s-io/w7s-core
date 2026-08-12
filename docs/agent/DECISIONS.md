@@ -43,3 +43,9 @@ W7S keeps path-based custom-domain routing low-friction. A repo can attach a pat
 Root hostname repos can declare `routing.customDomainAuthority` in `w7s.json` to explicitly allow delegated path prefixes by repository. When a path route is not covered by that optional authority, the deploy response returns a warning instead of blocking the deployment.
 
 Rationale: W7S should support an Omattic-style root site that acts as the security front door for path-mounted tools, but guard adoption should be incremental. Warnings promote the safer topology without breaking path routing during migration.
+
+## 2026-08-11: ISO Readiness Plan Lives In W7S Core
+
+The ISO 27001, ISO 27018, and ISO 27701 readiness planning workspace lives under `iso/` in `w7s-core`.
+
+Rationale: the plan is directly about hosted W7S core platform compliance and should live in the primary platform repository rather than only in the manager repository.

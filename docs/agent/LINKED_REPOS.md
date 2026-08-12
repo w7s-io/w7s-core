@@ -12,3 +12,4 @@
 - App repos should return explicit 404s for obvious scanner paths instead of serving SPA shells.
 - W7S core still owns routing telemetry, usage accounting, and suspension enforcement for custom-domain traffic before or after app dispatch.
 - App repos can request path-based custom routes by putting entries such as `omattic.com/compress-video` in `CNAME`; W7S strips `/compress-video` before static or backend dispatch.
+- Hosted W7S ISO readiness planning is canonical in `w7s-core/iso/`; manager worklogs may reference it but should not be the only copy.
