@@ -32,8 +32,8 @@ Goal: know what exists, what data it handles, and who owns it.
 
 Exit criteria:
 
-- Asset inventory exists.
-- Data inventory exists.
+- Asset inventory exists in `docs/iso/asset-and-data-inventory.md`.
+- Data inventory exists in `docs/iso/asset-and-data-inventory.md`.
 - Data flow diagrams exist.
 - Subprocessor list exists.
 

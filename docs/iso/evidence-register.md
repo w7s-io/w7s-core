@@ -5,8 +5,8 @@ Use this file as the audit evidence checklist. Add links or file paths as eviden
 | Evidence | Owner | Frequency | Status | Location |
 | --- | --- | --- | --- | --- |
 | ISO scope statement | TBD | Annual | Needed | `docs/iso/scope.md` |
-| Asset inventory | TBD | Quarterly | Needed | TBD |
-| Data inventory | TBD | Quarterly | Needed | TBD |
+| Asset inventory | TBD | Quarterly | Draft | `docs/iso/asset-and-data-inventory.md` |
+| Data inventory | TBD | Quarterly | Draft | `docs/iso/asset-and-data-inventory.md` |
 | Data flow diagrams | TBD | Annual and after major changes | Needed | TBD |
 | Risk register | TBD | Quarterly | Draft | `docs/iso/risk-register.md` |
 | Risk treatment approvals | TBD | Quarterly | Needed | TBD |

@@ -79,3 +79,9 @@ Start with:
 ```sh
 sed -n '1,220p' docs/iso/execution-plan.md
 ```
+
+For the first scoped inventory:
+
+```sh
+sed -n '1,260p' docs/iso/asset-and-data-inventory.md
+```

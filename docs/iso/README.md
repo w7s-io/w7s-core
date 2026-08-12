@@ -34,6 +34,7 @@ Out of initial scope:
 
 - [execution-plan.md](execution-plan.md): Step-by-step execution plan.
 - [scope.md](scope.md): System, data, vendor, and responsibility boundaries.
+- [asset-and-data-inventory.md](asset-and-data-inventory.md): First scoped inventory of production services, repositories, cloud assets, data categories, vendors, and open questions.
 - [evidence-register.md](evidence-register.md): Evidence checklist for audit readiness.
 - [control-roadmap.md](control-roadmap.md): Control families and implementation work.
 - [risk-register.md](risk-register.md): Initial compliance and security risk register.
