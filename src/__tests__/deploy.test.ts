@@ -1668,6 +1668,7 @@ describe("deploy API", () => {
       bindings?: Array<Record<string, string>>;
       compatibility_flags?: string[];
     }> = [];
+    const uploadedModuleNames: string[][] = [];
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -1682,6 +1683,7 @@ describe("deploy API", () => {
           const form = init.body as FormData;
           const metadata = form.get("metadata") as Blob;
           uploadedMetadata.push(JSON.parse(await metadata.text()));
+          uploadedModuleNames.push([...form.keys()].filter((name) => name !== "metadata").sort());
           return Response.json({ success: true, result: { startup_time_ms: 5 } });
         }
         return Response.json({ success: true, result: {} });
@@ -1695,9 +1697,11 @@ describe("deploy API", () => {
       deployRequest({
         "dist/server/index.js": "import { worker } from './assets/worker-entry.js'; import 'node:events'; export default worker;",
         "dist/server/assets/worker-entry.js": "export const worker = { fetch(){ return new Response('ssr') } };",
+        "dist/server/assets/lazy-route.js": "export const route = 'lazy';",
         "dist/server/wrangler.json": JSON.stringify({
           compatibility_date: "2025-09-24",
-          compatibility_flags: ["nodejs_compat"]
+          compatibility_flags: ["nodejs_compat"],
+          no_bundle: true
         }),
         "dist/client/assets/app.js": "console.log('client')"
       }),
@@ -1712,6 +1716,11 @@ describe("deploy API", () => {
     expect(record?.rpc?.binding).toBe("W7S_RPC");
     expect(record?.rpc?.tokenHash).toEqual(expect.any(String));
     expect(uploadedMetadata[0]?.compatibility_flags).toEqual(["nodejs_compat"]);
+    expect(uploadedModuleNames[0]).toEqual([
+      "assets/lazy-route.js",
+      "assets/worker-entry.js",
+      "index.js"
+    ]);
     expect(uploadedMetadata[0]?.bindings).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "service", name: "W7S_RPC", service: "w7s-io" }),

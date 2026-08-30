@@ -189,9 +189,19 @@ const transpileTypeScriptModule = (source: string, path: string) => {
   return output;
 };
 
-export const buildIsolateUploadModules = (entrypoint: string, archive: DeployArchive) => {
+export const buildIsolateUploadModules = (
+  entrypoint: string,
+  archive: DeployArchive,
+  options: { includeAllModules?: boolean } = {}
+) => {
   const modules = new Map<string, UploadedModule>();
-  const queue = [entrypoint];
+  const nativeRoot = resolveNativeAppRoot(entrypoint);
+  const allModules = options.includeAllModules
+    ? archive.entries
+        .map((entry) => entry.path)
+        .filter((path) => path.startsWith(`${nativeRoot}/`) && isJavaScriptModulePath(path))
+    : [];
+  const queue = [entrypoint, ...allModules.filter((path) => path !== entrypoint)];
   const visited = new Set<string>();
 
   while (queue.length > 0) {
@@ -235,6 +245,7 @@ const readWorkerConfig = (archive: DeployArchive, entrypoint: string) => {
     const parsed = JSON.parse(raw) as {
       compatibility_date?: unknown;
       compatibility_flags?: unknown;
+      no_bundle?: unknown;
     };
     return {
       compatibilityDate:
@@ -246,7 +257,8 @@ const readWorkerConfig = (archive: DeployArchive, entrypoint: string) => {
           ? parsed.compatibility_flags.filter((flag): flag is string =>
               typeof flag === "string" && Boolean(flag.trim())
             )
-          : undefined
+          : undefined,
+      noBundle: parsed.no_bundle === true
     };
   } catch {
     return {};
@@ -364,7 +376,9 @@ export const publishIsolateWorker = async (params: {
     optionalCloudflareString(params.env.CLOUDFLARE_ISOLATE_COMPATIBILITY_DATE) ??
     workerConfig.compatibilityDate ??
     DEFAULT_COMPATIBILITY_DATE;
-  const modules = buildIsolateUploadModules(entrypoint, params.archive);
+  const modules = buildIsolateUploadModules(entrypoint, params.archive, {
+    includeAllModules: workerConfig.noBundle
+  });
 
   await ensureDispatchNamespace({
     apiToken,

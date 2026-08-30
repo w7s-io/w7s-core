@@ -14,6 +14,7 @@
 - Native deployments receive branch, full commit hash, deployment time, source repository, and application identity as W7S metadata bindings plus legacy health metadata aliases.
 - Queue declarations may expose native producer bindings while W7S keeps isolated queue provisioning and HTTP consumer delivery.
 - W7S Core can dispatch Cloudflare Email Routing events to the configured shared email-gateway application.
+- Native Workers whose `wrangler.json` declares `no_bundle: true` upload their complete JavaScript module tree. This preserves framework modules reached only through runtime `import()`, including Nitro SSR services and lazy route chunks.
 
 - Keep custom-domain scanner noise from suspending customer apps when W7S returns cheap `not_found` 404 responses.
 - Continue recording `runtime.request` telemetry for all routed requests, including scanner 404s.

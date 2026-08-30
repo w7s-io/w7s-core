@@ -1,5 +1,11 @@
 # W7S Core Agent Decisions
 
+## 2026-08-30: No-Bundle Workers Upload Their Complete Module Tree
+
+When a native Worker's adjacent `wrangler.json` declares `no_bundle: true`, W7S uploads every JavaScript module under that Worker root instead of limiting the upload to the statically discovered import graph.
+
+Framework output such as Nitro uses runtime `import()` for SSR services and lazy route modules. Omitting those modules can produce a successful deployment that fails every runtime request. The generated Wrangler configuration is the source of truth for this packaging mode.
+
 ## 2026-08-30: Leaf Manifests Own Application Identity
 
 Second-level deployable folders may each contain a `w7s.json` with a stable `name`. The deployment API validates the `x-w7s-application` action header against that manifest name and derives an isolated internal identity from the source repository plus application.

@@ -59,6 +59,22 @@ describe("isolate publishing helpers", () => {
     ]);
   });
 
+  it("uploads the complete module tree for no-bundle Workers", async () => {
+    const archive = await archiveFromFiles({
+      "dist/server/index.mjs": "export default { async fetch(){ return (await import('./lazy.mjs')).response } }",
+      "dist/server/lazy.mjs": "export const response = new Response('lazy');",
+      "dist/server/unreferenced.mjs": "export const retained = true;"
+    });
+
+    const entrypoint = detectWorkerEntrypoint(archive);
+    const modules = buildIsolateUploadModules(entrypoint!, archive, { includeAllModules: true });
+    expect(modules.map((module) => module.name).sort()).toEqual([
+      "index.mjs",
+      "lazy.mjs",
+      "unreferenced.mjs"
+    ]);
+  });
+
   it("builds stable script names", () => {
     expect(buildStableScriptName("W7S-IO", "Demo_App", "production")).toBe("w7s-io--demo-app--production");
   });
