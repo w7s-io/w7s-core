@@ -61,6 +61,10 @@ export interface Env {
   W7S_ACCOUNT_SERVICE_ORIGIN?: string;
   W7S_ACCOUNT_SERVICE_TOKEN?: string;
   W7S_BILLING_ENABLED?: string;
+  W7S_EMAIL_GATEWAY_ORG?: string;
+  W7S_EMAIL_GATEWAY_REPO?: string;
+  W7S_EMAIL_GATEWAY_APPLICATION?: string;
+  W7S_EMAIL_GATEWAY_ENVIRONMENT?: string;
   APP_COMMIT_ID?: string;
   APP_DEPLOY_BRANCH?: string;
   APP_DEPLOYED_AT?: string;

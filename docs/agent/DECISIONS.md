@@ -8,7 +8,13 @@ All existing repository-scoped systems reuse that isolated identity, including W
 
 Permanent tenant branches may opt into direct custom domains with `routing.customDomainBranchMode: "direct"`. The default remains branch-prefixed custom domains for backward compatibility.
 
-W7S injects `W7S_BRANCH`, `W7S_COMMIT_HASH`, `W7S_DEPLOYED_AT`, `W7S_SOURCE_REPOSITORY`, and `W7S_APPLICATION` into native deployments. It also injects `GIT_BRANCH`, `GIT_COMMIT_HASH`, and `DEPLOYED_AT` aliases so migrated Workers expose complete health metadata without repository-specific deploy wrappers.
+W7S injects `W7S_BRANCH`, `W7S_COMMIT_HASH`, `W7S_DEPLOYED_AT`, `W7S_SOURCE_REPOSITORY`, and `W7S_APPLICATION` into native deployments. It also injects `GIT_BRANCH`, `GIT_COMMIT_HASH`, `BRANCH`, `COMMIT_HASH`, and `DEPLOYED_AT` aliases so migrated Workers expose complete health metadata without repository-specific deploy wrappers.
+
+## 2026-08-30: Native Queue Producers And Shared Email Ingress
+
+A queue object may declare `binding`. W7S binds that name as a native Cloudflare Queue producer while retaining W7S-owned provisioning, isolation, and HTTP consumer dispatch. Apps that use ordinary `Queue.send` and `Queue.sendBatch` therefore migrate without a custom producer API.
+
+The W7S Core email handler dispatches raw Email Routing events to a configured app-scoped gateway deployment. The gateway remains stateless and tenant storage stays inside the selected tenant deployment.
 
 ## 2026-07-12: Scanner Not-Found Bursts Do Not Suspend Apps
 

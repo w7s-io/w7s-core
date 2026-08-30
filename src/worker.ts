@@ -19,6 +19,7 @@ import {
 import { json } from "./http";
 import { handleQueueBatch } from "./runtime/queueDelivery";
 import { handleScheduled } from "./runtime/scheduleDelivery";
+import { handleEmail } from "./runtime/emailDelivery";
 import { W7SWorkflow } from "./runtime/workflowDelivery";
 import { resolveRuntimeRequest } from "./runtime/router";
 import { landingHtml } from "./static/landing";
@@ -134,6 +135,7 @@ app.all("*", async (c) => {
 
 export default {
   fetch: app.fetch,
+  email: handleEmail,
   queue: handleQueueBatch,
   scheduled: handleScheduled,
   tail: handleTailEvents

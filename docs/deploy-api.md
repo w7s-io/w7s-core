@@ -291,7 +291,7 @@ W7S uploads these declarations as `send_email` Worker bindings. Backend code can
 
 `rpc.allow` is optional. Same-owner backend-to-backend calls are allowed by default. Cross-owner calls are accepted only when the target app lists the caller GitHub owner or exact `owner/repo`.
 
-`queues` declares app-owned Cloudflare Queues. String entries use the default consumer route `/_w7s/queues/<queue>`. Object entries can override the consumer route:
+`queues` declares app-owned Cloudflare Queues. String entries use the default consumer route `/_w7s/queues/<queue>`. Object entries can override the consumer route and can expose the managed queue as a native producer binding:
 
 ```json
 {
@@ -299,6 +299,7 @@ W7S uploads these declarations as `send_email` Worker bindings. Backend code can
     "jobs",
     {
       "name": "emails",
+      "binding": "EMAIL_QUEUE",
       "consumer": "/internal/queues/emails"
     }
   ]

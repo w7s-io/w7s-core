@@ -34,6 +34,11 @@ export type WorkerUploadBinding =
       allowed_sender_addresses?: string[];
     }
   | {
+      type: "queue";
+      name: string;
+      queue_name: string;
+    }
+  | {
       type: "plain_text";
       name: string;
       text: string;

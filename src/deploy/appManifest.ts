@@ -47,6 +47,7 @@ export type AiBindingDeclaration = {
 export type QueueDeclaration = {
   name: string;
   consumer: string;
+  binding?: string;
 };
 
 export type ScheduleDeclaration = {
@@ -464,7 +465,10 @@ const parseQueues = (value: unknown): QueueDeclaration[] => {
       const name = ensureQueueName(record.name, `queues[${index}].name`);
       declaration = {
         name,
-        consumer: ensureConsumerPath(record.consumer, `queues[${index}].consumer`, name)
+        consumer: ensureConsumerPath(record.consumer, `queues[${index}].consumer`, name),
+        binding: record.binding === undefined
+          ? undefined
+          : ensureBindingName(record.binding, `queues[${index}].binding`)
       };
     }
     if (seen.has(declaration.name)) throw new Error(`queues[${index}] duplicates ${declaration.name}.`);

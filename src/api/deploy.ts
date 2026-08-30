@@ -348,7 +348,9 @@ export const handleDeploy = async (c: HonoContext) => {
       const queueToken = generateBindingToken();
       const queueBindings = buildQueueUploadBindings({
         env: c.env,
-        token: queueToken
+        token: queueToken,
+        declarations: appManifest.queues,
+        queues
       });
       deploymentQueue = {
         binding: W7S_QUEUE_BINDING,

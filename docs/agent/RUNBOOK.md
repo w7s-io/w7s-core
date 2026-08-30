@@ -82,6 +82,8 @@ curl -fsS https://w7s.io/health
 
 The response must expose `branch`, `commitHash`, and `deployedAt`.
 
+For shared Email Routing, point the routing rule at the W7S Core Worker and set `W7S_EMAIL_GATEWAY_ORG`, `W7S_EMAIL_GATEWAY_REPO`, `W7S_EMAIL_GATEWAY_APPLICATION`, and `W7S_EMAIL_GATEWAY_ENVIRONMENT` when the defaults do not match `omattic/inbox`, `email-gateway`, and `inglesconliza`.
+
 ## ISO Planning
 
 The hosted W7S ISO readiness workspace is:

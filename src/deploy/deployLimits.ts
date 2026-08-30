@@ -15,7 +15,7 @@ export const DEPLOY_LIMITS = {
   d1Bindings: 2,
   durableObjectClasses: 2,
   emailBindings: 2,
-  queues: 2,
+  queues: 10,
   schedules: 5,
   workflows: 5,
   customDomains: 3,
