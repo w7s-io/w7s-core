@@ -127,8 +127,7 @@ const extractStaticModuleRequests = (code: string) => {
   const requests = new Set<string>();
   const patterns = [
     /(?:^|[;\n])\s*import\s+(?:[^"'`;]+?\s+from\s+)?["']([^"']+)["']/gm,
-    /(?:^|[;\n])\s*export\s+(?:\*|\{[^}]*\})\s+from\s+["']([^"']+)["']/gm,
-    /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g
+    /(?:^|[;\n])\s*export\s+(?:\*|\{[^}]*\})\s+from\s+["']([^"']+)["']/gm
   ];
   for (const pattern of patterns) {
     let match: RegExpExecArray | null = null;
