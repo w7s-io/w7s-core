@@ -333,7 +333,12 @@ export const handleDeploy = async (c: HonoContext) => {
         orgSlug,
         repoSlug,
         environment,
-        token: rpcToken
+        token: rpcToken,
+        sourceRepository: repo.fullName,
+        application,
+        branch,
+        commitHash: commitSha,
+        deployedAt
       });
       deploymentRpc = {
         binding: W7S_RPC_BINDING,

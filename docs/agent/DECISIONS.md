@@ -8,6 +8,8 @@ All existing repository-scoped systems reuse that isolated identity, including W
 
 Permanent tenant branches may opt into direct custom domains with `routing.customDomainBranchMode: "direct"`. The default remains branch-prefixed custom domains for backward compatibility.
 
+W7S injects `W7S_BRANCH`, `W7S_COMMIT_HASH`, `W7S_DEPLOYED_AT`, `W7S_SOURCE_REPOSITORY`, and `W7S_APPLICATION` into native deployments. It also injects `GIT_BRANCH`, `GIT_COMMIT_HASH`, and `DEPLOYED_AT` aliases so migrated Workers expose complete health metadata without repository-specific deploy wrappers.
+
 ## 2026-07-12: Scanner Not-Found Bursts Do Not Suspend Apps
 
 W7S records all routed requests as usage, including W7S-generated `not_found` 404 responses on mapped custom domains.

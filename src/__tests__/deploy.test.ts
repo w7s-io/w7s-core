@@ -1716,7 +1716,10 @@ describe("deploy API", () => {
       expect.arrayContaining([
         expect.objectContaining({ type: "service", name: "W7S_RPC", service: "w7s-io" }),
         expect.objectContaining({ type: "secret_text", name: "W7S_RPC_TOKEN" }),
-        { type: "plain_text", name: "W7S_REPOSITORY", text: "w7s-io/demo" }
+        { type: "plain_text", name: "W7S_REPOSITORY", text: "w7s-io/demo" },
+        { type: "plain_text", name: "W7S_BRANCH", text: "main" },
+        { type: "plain_text", name: "W7S_COMMIT_HASH", text: "abc123" },
+        expect.objectContaining({ type: "plain_text", name: "W7S_DEPLOYED_AT" })
       ])
     );
   });

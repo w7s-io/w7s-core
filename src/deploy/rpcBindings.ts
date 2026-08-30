@@ -14,6 +14,11 @@ export const buildRpcUploadBindings = (params: {
   repoSlug: string;
   environment: string;
   token: string;
+  sourceRepository?: string;
+  application?: string;
+  branch?: string;
+  commitHash?: string;
+  deployedAt?: string;
 }): WorkerUploadBinding[] => [
   {
     type: "service",
@@ -45,5 +50,18 @@ export const buildRpcUploadBindings = (params: {
     type: "plain_text",
     name: "W7S_ENVIRONMENT",
     text: params.environment
-  }
+  },
+  ...([
+    ["W7S_SOURCE_REPOSITORY", params.sourceRepository],
+    ["W7S_APPLICATION", params.application],
+    ["W7S_BRANCH", params.branch],
+    ["W7S_COMMIT_HASH", params.commitHash],
+    ["W7S_DEPLOYED_AT", params.deployedAt],
+    ["GIT_BRANCH", params.branch],
+    ["GIT_COMMIT_HASH", params.commitHash],
+    ["DEPLOYED_AT", params.deployedAt]
+  ] as const)
+    .flatMap(([name, text]): WorkerUploadBinding[] => text
+      ? [{ type: "plain_text", name, text }]
+      : [])
 ];
