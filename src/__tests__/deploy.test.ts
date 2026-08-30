@@ -1683,7 +1683,11 @@ describe("deploy API", () => {
           const form = init.body as FormData;
           const metadata = form.get("metadata") as Blob;
           uploadedMetadata.push(JSON.parse(await metadata.text()));
-          uploadedModuleNames.push([...form.keys()].filter((name) => name !== "metadata").sort());
+          const moduleNames: string[] = [];
+          form.forEach((_value, name) => {
+            if (name !== "metadata") moduleNames.push(name);
+          });
+          uploadedModuleNames.push(moduleNames.sort());
           return Response.json({ success: true, result: { startup_time_ms: 5 } });
         }
         return Response.json({ success: true, result: {} });
