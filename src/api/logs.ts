@@ -3,7 +3,7 @@ import type { Env } from "../env";
 import { parseGitHubRepository, verifyGitHubRepoAccess } from "../deploy/githubAuth";
 import { jsonError, jsonSuccess, parseBearerToken } from "../http";
 import { listAppLogs, type AppLogKind } from "../logs";
-import { requireSlug, resolveEnvironment } from "../names";
+import { applicationScopedRepoSlug, requireSlug, resolveEnvironment } from "../names";
 
 type HonoContext = Context<{ Bindings: Env }>;
 
@@ -24,7 +24,10 @@ const parseLogsTarget = (c: HonoContext) => {
     owner,
     repo,
     orgSlug: requireSlug(decodeURIComponent(owner), "logs owner"),
-    repoSlug: requireSlug(decodeURIComponent(repo), "logs repo")
+    repoSlug: applicationScopedRepoSlug(
+      requireSlug(decodeURIComponent(repo), "logs repo"),
+      c.req.query("application")
+    )
   };
 };
 

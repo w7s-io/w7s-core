@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import type { Env } from "../env";
 import { parseGitHubRepository, verifyGitHubRepoAccess } from "../deploy/githubAuth";
 import { jsonError, jsonSuccess, parseBearerToken } from "../http";
-import { requireSlug, resolveEnvironment } from "../names";
+import { applicationScopedRepoSlug, requireSlug, resolveEnvironment } from "../names";
 import { loadEffectiveUsageLimitPolicies } from "../usageLimits";
 
 type HonoContext = Context<{ Bindings: Env }>;
@@ -24,7 +24,10 @@ const parseLimitsTarget = (c: HonoContext) => {
     owner,
     repo,
     orgSlug: requireSlug(decodeURIComponent(owner), "limits owner"),
-    repoSlug: requireSlug(decodeURIComponent(repo), "limits repo")
+    repoSlug: applicationScopedRepoSlug(
+      requireSlug(decodeURIComponent(repo), "limits repo"),
+      c.req.query("application")
+    )
   };
 };
 

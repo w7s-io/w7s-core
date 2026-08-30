@@ -70,8 +70,11 @@ const blobsForEvent = (event: AnalyticsEvent) => {
 
 export const writeAnalyticsEvent = (env: Env, event: AnalyticsEvent) => {
   try {
+    const applicationIdentity = event.orgSlug && event.repoSlug
+      ? `${event.orgSlug}/${event.repoSlug}`
+      : event.repository;
     env.W7S_ANALYTICS?.writeDataPoint({
-      indexes: [index(event.repository)],
+      indexes: [index(applicationIdentity)],
       blobs: blobsForEvent(event),
       doubles: [
         number(event.count ?? 1),

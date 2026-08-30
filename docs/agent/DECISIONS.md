@@ -1,5 +1,13 @@
 # W7S Core Agent Decisions
 
+## 2026-08-30: Leaf Manifests Own Application Identity
+
+Second-level deployable folders may each contain a `w7s.json` with a stable `name`. The deployment API validates the `x-w7s-application` action header against that manifest name and derives an isolated internal identity from the source repository plus application.
+
+All existing repository-scoped systems reuse that isolated identity, including Worker scripts, static assets, managed resources, queues, schedules, workflows, custom-domain mappings, usage, logs, suspension state, and cleanup. Repositories without a manifest name keep their legacy identity.
+
+Permanent tenant branches may opt into direct custom domains with `routing.customDomainBranchMode: "direct"`. The default remains branch-prefixed custom domains for backward compatibility.
+
 ## 2026-07-12: Scanner Not-Found Bursts Do Not Suspend Apps
 
 W7S records all routed requests as usage, including W7S-generated `not_found` 404 responses on mapped custom domains.

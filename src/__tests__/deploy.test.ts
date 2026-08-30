@@ -12,6 +12,7 @@ import {
 } from "../storage/deployments";
 import { recordUsageEvent } from "../usage";
 import { usageLimitPolicyKey } from "../usageLimits";
+import { applicationScopedRepoSlug } from "../names";
 
 const zipBytes = (files: Record<string, string>) =>
   zipSync(
@@ -40,6 +41,7 @@ const deployValueHeader = (values: Record<string, string>) =>
 const stubCustomDomainFetch = (params: {
   repository: string;
   txtAnswers?: string[];
+  zoneName?: string;
 }) =>
   vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -49,7 +51,7 @@ const stubCustomDomainFetch = (params: {
     if (url === "https://api.cloudflare.com/client/v4/zones?per_page=100") {
       return Response.json({
         success: true,
-        result: [{ id: "zone-1", name: "carlosguerrero.com" }]
+        result: [{ id: "zone-1", name: params.zoneName ?? "carlosguerrero.com" }]
       });
     }
     if (url.startsWith("https://cloudflare-dns.com/dns-query")) {
@@ -136,6 +138,73 @@ describe("deploy API", () => {
         ""
       ],
       doubles: [2, 200, 0]
+    });
+  });
+
+  it("isolates applications declared by second-level w7s.json files", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).startsWith("https://api.github.com/repos/")) {
+          return Response.json({ full_name: "w7s-io/demo" });
+        }
+        return Response.json({ success: true, result: {} });
+      })
+    );
+    const env = createTestEnv();
+    for (const application of ["console", "support-api"]) {
+      const response = await app.fetch(
+        deployRequest(
+          {
+            "w7s.json": JSON.stringify({ name: application }),
+            "frontend/dist/index.html": `<h1>${application}</h1>`
+          },
+          { "x-w7s-application": application }
+        ),
+        env
+      );
+      expect(response.status).toBe(200);
+    }
+
+    const consoleRecord = await loadDeploymentRecord(
+      env,
+      "production",
+      "w7s-io",
+      applicationScopedRepoSlug("demo", "console")
+    );
+    const apiRecord = await loadDeploymentRecord(
+      env,
+      "production",
+      "w7s-io",
+      applicationScopedRepoSlug("demo", "support-api")
+    );
+    expect(consoleRecord).toMatchObject({
+      repository: "w7s-io/demo",
+      sourceRepoSlug: "demo",
+      application: "console"
+    });
+    expect(apiRecord).toMatchObject({ application: "support-api" });
+    expect(consoleRecord?.targets.static?.manifestKey).not.toBe(apiRecord?.targets.static?.manifestKey);
+  });
+
+  it("rejects an application header that disagrees with w7s.json", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ full_name: "w7s-io/demo" }))
+    );
+    const response = await app.fetch(
+      deployRequest(
+        {
+          "w7s.json": JSON.stringify({ name: "console" }),
+          "frontend/dist/index.html": "<h1>Console</h1>"
+        },
+        { "x-w7s-application": "support-api" }
+      ),
+      createTestEnv()
+    );
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: "x-w7s-application must match name in w7s.json."
     });
   });
 
@@ -708,6 +777,48 @@ describe("deploy API", () => {
         environment: "feature-custom-domain"
       })
     );
+  });
+
+  it("attaches direct tenant domains from non-main branches when requested", async () => {
+    vi.stubGlobal("fetch", stubCustomDomainFetch({ repository: "omattic/inbox", zoneName: "omattic.com" }));
+    const env = createTestEnv({ CLOUDFLARE_API_TOKEN: "cf-token" });
+    const response = await app.fetch(
+      deployRequest(
+        {
+          CNAME: "inglesconliza.omattic.com/api\n",
+          "w7s.json": JSON.stringify({
+            name: "support-api",
+            routing: {
+              defaultDomain: false,
+              customDomainBranchMode: "direct"
+            }
+          }),
+          "dist/client/index.html": "<h1>API</h1>"
+        },
+        {
+          "x-github-repository": "omattic/inbox",
+          "x-github-branch": "inglesconliza",
+          "x-w7s-application": "support-api"
+        }
+      ),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as {
+      data?: { url?: string; deployment?: DeploymentRecord; customDomains?: string[] };
+    };
+    expect(body.data?.url).toBe("https://inglesconliza.omattic.com/api/");
+    expect(body.data?.customDomains).toEqual(["inglesconliza.omattic.com/api"]);
+    expect(body.data?.deployment).toMatchObject({
+      repository: "omattic/inbox",
+      branch: "inglesconliza",
+      application: "support-api",
+      routing: {
+        defaultDomain: false,
+        customDomainBranchMode: "direct"
+      }
+    });
   });
 
   it("does not remove existing custom domain mappings from non-main deploys", async () => {

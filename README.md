@@ -139,6 +139,7 @@ Optional app manifest:
 
 ```json
 {
+  "name": "support-api",
   "bindings": {
     "kv": ["CACHE"],
     "r2": ["FILES"],
@@ -179,11 +180,19 @@ Optional app manifest:
   },
   "rpc": {
     "allow": ["w7s-io", "guerrerocarlos/notepad"]
+  },
+  "routing": {
+    "defaultDomain": false,
+    "customDomainBranchMode": "direct"
   }
 }
 ```
 
-Managed storage, Durable Objects, queues, schedules, and workflows are scoped by repository and environment, so a production deploy and a feature-branch deploy receive separate durable resources. D1 migration files are applied once in sorted order and tracked in the app database.
+The optional `name` is the stable application identity. It lets multiple second-level folders in one repository deploy independently when each folder has its own `w7s.json`. Scripts, static assets, managed storage, Durable Objects, queues, schedules, workflows, usage, logs, routing, and cleanup are scoped by repository, application, and environment. Existing single-app repositories without `name` keep their legacy repository identity.
+
+`routing.defaultDomain=false` disables the generated `*.w7s.cloud` route. `routing.customDomainBranchMode="direct"` lets a non-main branch attach the hostname declared by its own `CNAME` directly, which is useful when permanent tenants are represented by branches. The default mode remains `prefixed`, where non-main branches receive a branch-prefixed custom hostname.
+
+D1 migration files are applied once in sorted order and tracked in the application database.
 
 Durable Object apps must export the declared classes from the native Worker bundle. W7S uploads them as `durable_object_namespace` bindings and creates SQLite-backed classes automatically the first time they appear.
 

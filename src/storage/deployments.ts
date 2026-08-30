@@ -24,6 +24,8 @@ export type DeploymentRecord = {
   version: 1;
   orgSlug: string;
   repoSlug: string;
+  sourceRepoSlug?: string;
+  application?: string;
   environment: string;
   repository: string;
   branch: string;
@@ -32,6 +34,7 @@ export type DeploymentRecord = {
   customDomains?: string[];
   routing?: {
     defaultDomain: boolean;
+    customDomainBranchMode?: "prefixed" | "direct";
     customDomainAuthority?: {
       domains: string[];
       allow: Array<{

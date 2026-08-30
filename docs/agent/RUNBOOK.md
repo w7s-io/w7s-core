@@ -6,6 +6,22 @@
 npm run check
 ```
 
+## Monorepo Application Verification
+
+Give every independently deployed folder a unique `w7s.json` name. Deploy through the reusable action with that folder as `working-directory`, then confirm the response includes `application` and `sourceRepoSlug` and that sibling applications have different deployment keys and Worker or static targets.
+
+For a permanent tenant branch that must not use `w7s.cloud`, use:
+
+```json
+{
+  "name": "support-api",
+  "routing": {
+    "defaultDomain": false,
+    "customDomainBranchMode": "direct"
+  }
+}
+```
+
 ## Email Binding Verification
 
 Deploy a native backend with:

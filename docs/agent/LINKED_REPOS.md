@@ -1,5 +1,16 @@
 # W7S Core Linked Repositories
 
+## omattic/inbox
+
+- Uses one tenant branch per workspace, starting with `inglesconliza`.
+- Each `apps/*` deployment owns a leaf `w7s.json` name and a path route on the tenant hostname.
+- Tenant apps disable the generated W7S domain and use direct branch custom domains under `*.omattic.com`.
+- Deployment workflows use GitHub `paths` filters and the W7S action `working-directory` input.
+
+## w7s-io/w7s-cloud
+
+- The reusable action reads the leaf manifest name, sends `x-w7s-application`, and preserves that identity in usage and logs checks.
+
 ## omattic/seokeywordexplorer-com
 
 - Local checkout: `/home/gnu/seokeywordexplorer-com`

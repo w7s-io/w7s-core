@@ -43,7 +43,7 @@ import {
   planCustomDomainClaims,
   readCustomDomains
 } from "../deploy/customDomains";
-import { buildDeploymentScriptName, buildStableScriptName, requireSlug, resolveEnvironment, sanitizeScriptPart } from "../names";
+import { applicationScopedRepoSlug, buildDeploymentScriptName, buildStableScriptName, requireSlug, resolveEnvironment, sanitizeScriptPart } from "../names";
 import {
   replaceCustomDomainMappings,
   replaceQueueMappings,
@@ -62,8 +62,6 @@ type DeployWarning = {
   message: string;
   requiredEntrypoints: string[];
 };
-
-const CUSTOM_DOMAIN_BRANCH = "main";
 
 const readHeader = (c: HonoContext, name: string) => c.req.header(name)?.trim() ?? "";
 
@@ -148,7 +146,7 @@ export const handleDeploy = async (c: HonoContext) => {
   if (!repo) return jsonError("x-github-repository must be in owner/repo form.", 400);
 
   const orgSlug = requireSlug(repo.owner, "repository owner");
-  const repoSlug = requireSlug(repo.repo, "repository name");
+  const sourceRepoSlug = requireSlug(repo.repo, "repository name");
   let environment: string;
   try {
     environment = resolveEnvironment({
@@ -168,6 +166,32 @@ export const handleDeploy = async (c: HonoContext) => {
   if (!allowed) {
     return jsonError("Bearer token is not authorized for this GitHub repository.", 401);
   }
+
+  let archive;
+  let appManifest;
+  let deployValues;
+  try {
+    archive = await readDeployArchive(c.req.raw);
+    appManifest = readAppManifest(archive);
+    deployValues = readDeployValues(c);
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : String(error), 400);
+  }
+
+  const headerApplication = readHeader(c, "x-w7s-application");
+  let application: string;
+  try {
+    const normalizedHeaderApplication = headerApplication
+      ? requireSlug(headerApplication, "application name")
+      : "";
+    if (normalizedHeaderApplication && appManifest.name && normalizedHeaderApplication !== appManifest.name) {
+      return jsonError("x-w7s-application must match name in w7s.json.", 400);
+    }
+    application = appManifest.name || normalizedHeaderApplication || sourceRepoSlug;
+  } catch (error) {
+    return jsonError(error instanceof Error ? error.message : String(error), 400);
+  }
+  const repoSlug = applicationScopedRepoSlug(sourceRepoSlug, application);
 
   const limitResponse = await enforceUsageLimit(c.env, {
     metric: "deploy",
@@ -191,26 +215,16 @@ export const handleDeploy = async (c: HonoContext) => {
     githubOwnerType: "org",
     operation: "deploy",
     amountCents: 100,
-    idempotencyKey: `deploy:${environment}:${orgSlug}:${repoSlug}:${commitSha}`,
+    idempotencyKey: `deploy:${environment}:${orgSlug}:${sourceRepoSlug}:${application}:${commitSha}`,
     metadata: {
       repository: repo.fullName,
       branch,
       commitSha,
-      environment
+      environment,
+      application
     }
   });
   if (billingReservation instanceof Response) return billingReservation;
-
-  let archive;
-  let appManifest;
-  let deployValues;
-  try {
-    archive = await readDeployArchive(c.req.raw);
-    appManifest = readAppManifest(archive);
-    deployValues = readDeployValues(c);
-  } catch (error) {
-    return jsonError(error instanceof Error ? error.message : String(error), 400);
-  }
 
   const nativeRoots = detectNativeWorkerRoots(archive);
   const hasNativeRoot = hasNativeWorkerRoot(archive);
@@ -220,7 +234,8 @@ export const handleDeploy = async (c: HonoContext) => {
     allowAssetOnly: hasNativeBackend
   });
   const deploymentWarnings: DeployWarning[] = [];
-  const customDomainsEnabled = branch.trim() === CUSTOM_DOMAIN_BRANCH;
+  const customDomainsEnabled =
+    appManifest.routing.customDomainBranchMode === "direct" || branch.trim() === "main";
   const branchCustomDomainPrefix = sanitizeScriptPart(branch);
   let customDomains: ReturnType<typeof readCustomDomains>;
   try {
@@ -431,6 +446,8 @@ export const handleDeploy = async (c: HonoContext) => {
     version: 1,
     orgSlug,
     repoSlug,
+    sourceRepoSlug,
+    application,
     environment,
     repository: repo.fullName,
     branch,

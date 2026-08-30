@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import type { Env } from "../env";
 import { parseGitHubRepository, verifyGitHubRepoAccess } from "../deploy/githubAuth";
 import { jsonError, jsonSuccess, parseBearerToken } from "../http";
-import { requireSlug, resolveEnvironment } from "../names";
+import { applicationScopedRepoSlug, requireSlug, resolveEnvironment } from "../names";
 import { loadUsageDailyRollup, usageDate } from "../usage";
 import { evaluateUsageLimits, loadEffectiveUsageLimitPolicies } from "../usageLimits";
 import { listCloudflareUsageHourlyRecords } from "../cloudflareUsage";
@@ -27,7 +27,10 @@ const parseUsageTarget = (c: HonoContext) => {
     owner,
     repo,
     orgSlug: requireSlug(decodeURIComponent(owner), "usage owner"),
-    repoSlug: requireSlug(decodeURIComponent(repo), "usage repo")
+    repoSlug: applicationScopedRepoSlug(
+      requireSlug(decodeURIComponent(repo), "usage repo"),
+      c.req.query("application")
+    )
   };
 };
 

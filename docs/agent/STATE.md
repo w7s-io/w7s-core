@@ -9,6 +9,9 @@
 
 ## Active Priorities
 
+- Monorepo deployments can declare a stable `name` in each leaf `w7s.json`. W7S scopes every existing repository-based deployment surface through an effective application identity, so sibling folders do not overwrite each other.
+- Permanent tenant branches can set `routing.customDomainBranchMode` to `direct` and `routing.defaultDomain` to `false`, attaching only their declared custom hostname without a generated `*.w7s.cloud` route.
+
 - Keep custom-domain scanner noise from suspending customer apps when W7S returns cheap `not_found` 404 responses.
 - Continue recording `runtime.request` telemetry for all routed requests, including scanner 404s.
 - Preserve suspension behavior for actual app/workload traffic and non-rate policy enforcement.

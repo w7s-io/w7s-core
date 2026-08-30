@@ -2,7 +2,7 @@ import type { Context } from "hono";
 import type { Env } from "../env";
 import { parseGitHubRepository, verifyGitHubRepoAccess } from "../deploy/githubAuth";
 import { json, jsonError, jsonSuccess, parseBearerToken } from "../http";
-import { requireSlug, resolveEnvironment, sanitizeScriptPart } from "../names";
+import { applicationScopedRepoSlug, requireSlug, resolveEnvironment, sanitizeScriptPart } from "../names";
 import {
   listDeploymentRecords,
   listManagedResourceRecords,
@@ -51,7 +51,10 @@ const parseAgentRepoTarget = (c: HonoContext) => {
     owner: decodeURIComponent(owner),
     repo: decodeURIComponent(repo),
     orgSlug: requireSlug(decodeURIComponent(owner), "agent owner"),
-    repoSlug: requireSlug(decodeURIComponent(repo), "agent repo"),
+    repoSlug: applicationScopedRepoSlug(
+      requireSlug(decodeURIComponent(repo), "agent repo"),
+      c.req.query("application")
+    ),
     tail
   };
 };
@@ -361,6 +364,10 @@ export const handleAgentManifestSchemaGet = () =>
     type: "object",
     additionalProperties: true,
     properties: {
+      name: {
+        type: "string",
+        description: "Stable application identity. Required for independently deployed folders in a monorepo."
+      },
       bindings: {
         type: "object",
         properties: {
@@ -381,10 +388,17 @@ export const handleAgentManifestSchemaGet = () =>
       queue: { type: "object", properties: { allow: { type: "array", items: { type: "string" } } } },
       workflow: { type: "object", properties: { allow: { type: "array", items: { type: "string" } } } },
       rpc: { type: "object", properties: { allow: { type: "array", items: { type: "string" } } } },
-      routing: { type: "object", properties: { defaultDomain: { type: "boolean" } } }
+      routing: {
+        type: "object",
+        properties: {
+          defaultDomain: { type: "boolean" },
+          customDomainBranchMode: { enum: ["prefixed", "direct"] }
+        }
+      }
     },
     examples: [
       {
+        name: "example-worker",
         bindings: {
           kv: ["CACHE"],
           r2: ["FILES"],

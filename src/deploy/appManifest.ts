@@ -70,6 +70,7 @@ export type CustomDomainAuthorityDeclaration = {
 };
 
 export type AppManifest = {
+  name?: string;
   bindings: {
     kv: KvBindingDeclaration[];
     r2: R2BindingDeclaration[];
@@ -95,6 +96,7 @@ export type AppManifest = {
   };
   routing: {
     defaultDomain: boolean;
+    customDomainBranchMode?: "direct";
     customDomainAuthority?: CustomDomainAuthorityDeclaration;
   };
 };
@@ -542,17 +544,30 @@ const parseRpc = (value: unknown) => {
 };
 
 const parseRouting = (value: unknown) => {
-  if (value === undefined) return { defaultDomain: true };
+  if (value === undefined) {
+    return { defaultDomain: true };
+  }
   const record = asRecord(value, "routing");
   const defaultDomain = record.defaultDomain ?? record.default_domain;
   if (defaultDomain !== undefined && typeof defaultDomain !== "boolean") {
     throw new Error("routing.defaultDomain must be a boolean.");
+  }
+  const rawCustomDomainBranchMode = record.customDomainBranchMode ?? record.custom_domain_branch_mode;
+  if (
+    rawCustomDomainBranchMode !== undefined &&
+    rawCustomDomainBranchMode !== "prefixed" &&
+    rawCustomDomainBranchMode !== "direct"
+  ) {
+    throw new Error("routing.customDomainBranchMode must be prefixed or direct.");
   }
   const customDomainAuthority = parseCustomDomainAuthority(
     record.customDomainAuthority ?? record.custom_domain_authority
   );
   return {
     defaultDomain: defaultDomain ?? true,
+    ...(rawCustomDomainBranchMode === "direct"
+      ? { customDomainBranchMode: "direct" as const }
+      : {}),
     ...(customDomainAuthority ? { customDomainAuthority } : {})
   };
 };
@@ -569,7 +584,9 @@ export const readAppManifest = (archive: DeployArchive) => {
 
   const record = asRecord(parsed, "w7s.json");
   const bindings = record.bindings === undefined ? {} : asRecord(record.bindings, "bindings");
+  const name = optionalString(record.name, "name");
   return {
+    ...(name ? { name: ensureQueueName(name, "name") } : {}),
     bindings: {
       kv: parseKvBindings(bindings.kv),
       r2: parseR2Bindings(bindings.r2),

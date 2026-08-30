@@ -56,6 +56,25 @@ export const resolveEnvironment = (params: {
 export const sanitizeScriptPart = (value: string) =>
   normalizeSlug(value).replace(/[._]+/g, "-") || "worker";
 
+const shortIdentityHash = (value: string) => {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(36).padStart(7, "0").slice(0, 7);
+};
+
+export const applicationScopedRepoSlug = (repoSlug: string, application?: string | null) => {
+  const normalizedRepo = requireSlug(repoSlug, "repository name");
+  const normalizedApplication = application?.trim()
+    ? requireSlug(application, "application name")
+    : "";
+  if (!normalizedApplication || normalizedApplication === normalizedRepo) return normalizedRepo;
+  const readable = sanitizeScriptPart(normalizedApplication).slice(0, 48).replace(/-+$/g, "");
+  return `${normalizedRepo}-app-${readable}-${shortIdentityHash(`${normalizedRepo}\0${normalizedApplication}`)}`;
+};
+
 export const buildStableScriptName = (orgSlug: string, repoSlug: string, environment: string) =>
   `${sanitizeScriptPart(orgSlug)}--${sanitizeScriptPart(repoSlug)}--${sanitizeScriptPart(environment)}`;
 
