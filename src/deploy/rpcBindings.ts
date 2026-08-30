@@ -59,6 +59,8 @@ export const buildRpcUploadBindings = (params: {
     ["W7S_DEPLOYED_AT", params.deployedAt],
     ["GIT_BRANCH", params.branch],
     ["GIT_COMMIT_HASH", params.commitHash],
+    ["BRANCH", params.branch],
+    ["COMMIT_HASH", params.commitHash],
     ["DEPLOYED_AT", params.deployedAt]
   ] as const)
     .flatMap(([name, text]): WorkerUploadBinding[] => text
