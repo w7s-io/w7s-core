@@ -7,6 +7,12 @@
 - Tenant apps disable the generated W7S domain and use direct branch custom domains under `*.omattic.com`.
 - Deployment workflows use GitHub `paths` filters and the W7S action `working-directory` input.
 
+## omattic/inbox-gateway
+
+- Owns the shared stateless inbound email gateway at `inbox.omattic.com`.
+- Deploys from `main` to the repository-scoped W7S `production` environment.
+- Receives raw Email Routing dispatches from W7S Core and forwards signed messages to isolated tenant ingest endpoints.
+
 ## w7s-io/w7s-cloud
 
 - The reusable action reads the leaf manifest name, sends `x-w7s-application`, and preserves that identity in usage and logs checks.

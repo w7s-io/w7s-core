@@ -84,7 +84,7 @@ curl -fsS https://w7s.io/health
 
 The response must expose `branch`, `commitHash`, and `deployedAt`.
 
-For shared Email Routing, point the routing rule at the W7S Core Worker and set `W7S_EMAIL_GATEWAY_ORG`, `W7S_EMAIL_GATEWAY_REPO`, `W7S_EMAIL_GATEWAY_APPLICATION`, and `W7S_EMAIL_GATEWAY_ENVIRONMENT` when the defaults do not match `omattic/inbox`, `email-gateway`, and `inglesconliza`.
+For shared Email Routing, point the routing rule at the W7S Core Worker. The default target is the `production` environment of `omattic/inbox-gateway`. Set `W7S_EMAIL_GATEWAY_ORG`, `W7S_EMAIL_GATEWAY_REPO`, `W7S_EMAIL_GATEWAY_APPLICATION`, or `W7S_EMAIL_GATEWAY_ENVIRONMENT` only when an alternate deployment is required.
 
 ## ISO Planning
 

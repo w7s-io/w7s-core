@@ -3,12 +3,28 @@ import { applicationScopedRepoSlug } from "../names";
 import { loadDeploymentRecord } from "../storage/deployments";
 import { dispatchWorker } from "./dispatch";
 
-export const handleEmail = async (message: ForwardableEmailMessage, env: Env) => {
+type EmailGatewayTargetEnv = Pick<
+  Env,
+  | "W7S_EMAIL_GATEWAY_ORG"
+  | "W7S_EMAIL_GATEWAY_REPO"
+  | "W7S_EMAIL_GATEWAY_APPLICATION"
+  | "W7S_EMAIL_GATEWAY_ENVIRONMENT"
+>;
+
+export const resolveEmailGatewayTarget = (env: EmailGatewayTargetEnv) => {
   const orgSlug = env.W7S_EMAIL_GATEWAY_ORG || "omattic";
-  const sourceRepoSlug = env.W7S_EMAIL_GATEWAY_REPO || "inbox";
-  const application = env.W7S_EMAIL_GATEWAY_APPLICATION || "email-gateway";
-  const environment = env.W7S_EMAIL_GATEWAY_ENVIRONMENT || "inglesconliza";
-  const repoSlug = applicationScopedRepoSlug(sourceRepoSlug, application);
+  const sourceRepoSlug = env.W7S_EMAIL_GATEWAY_REPO || "inbox-gateway";
+  const application = env.W7S_EMAIL_GATEWAY_APPLICATION;
+  const environment = env.W7S_EMAIL_GATEWAY_ENVIRONMENT || "production";
+  return {
+    orgSlug,
+    environment,
+    repoSlug: applicationScopedRepoSlug(sourceRepoSlug, application),
+  };
+};
+
+export const handleEmail = async (message: ForwardableEmailMessage, env: Env) => {
+  const { orgSlug, environment, repoSlug } = resolveEmailGatewayTarget(env);
   const deployment = await loadDeploymentRecord(env, environment, orgSlug, repoSlug);
   if (!deployment?.targets.worker) {
     message.setReject("Omattic email gateway is not deployed.");
