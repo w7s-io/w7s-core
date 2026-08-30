@@ -74,7 +74,8 @@ const dirname = (value: string) => {
 
 const joinPath = (baseDir: string, target: string) => {
   const stack = normalizeArchivePath(baseDir).split("/").filter(Boolean);
-  normalizeArchivePath(target)
+  target
+    .replace(/\\/g, "/")
     .split("/")
     .filter(Boolean)
     .forEach((part) => {
@@ -125,9 +126,8 @@ const toCloudflareModuleName = (path: string) => {
 const extractStaticModuleRequests = (code: string) => {
   const requests = new Set<string>();
   const patterns = [
-    /\bimport\s+[\s\S]*?\s+from\s+["']([^"']+)["']/g,
-    /\bimport\s+["']([^"']+)["']/g,
-    /\bexport\s+[\s\S]*?\s+from\s+["']([^"']+)["']/g,
+    /(?:^|[;\n])\s*import\s+(?:[^"'`;]+?\s+from\s+)?["']([^"']+)["']/gm,
+    /(?:^|[;\n])\s*export\s+(?:\*|\{[^}]*\})\s+from\s+["']([^"']+)["']/gm,
     /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g
   ];
   for (const pattern of patterns) {
@@ -229,10 +229,7 @@ export const buildIsolateUploadModules = (entrypoint: string, archive: DeployArc
 };
 
 const readWorkerConfig = (archive: DeployArchive, entrypoint: string) => {
-  const configPath = entrypoint.startsWith("dist/server/")
-    ? "dist/server/wrangler.json"
-    : null;
-  if (!configPath) return {};
+  const configPath = `${resolveNativeAppRoot(entrypoint)}/wrangler.json`;
   const raw = readTextFile(archive, configPath);
   if (!raw) return {};
   try {
