@@ -190,7 +190,7 @@ Optional app manifest:
 
 The optional `name` is the stable application identity. It lets multiple second-level folders in one repository deploy independently when each folder has its own `w7s.json`. Scripts, static assets, managed storage, Durable Objects, queues, schedules, workflows, usage, logs, routing, and cleanup are scoped by repository, application, and environment. Existing single-app repositories without `name` keep their legacy repository identity.
 
-`routing.defaultDomain=false` disables the generated `*.w7s.cloud` route. `routing.customDomainBranchMode="direct"` lets a non-main branch attach the hostname declared by its own `CNAME` directly, which is useful when permanent tenants are represented by branches. The default mode remains `prefixed`, where non-main branches receive a branch-prefixed custom hostname.
+`routing.defaultDomain=false` disables the generated `*.w7s.cloud` route. `routing.customDomainBranchMode="direct"` lets a non-main branch attach the hostname declared by its own `CNAME` directly, which is useful when permanent tenants are represented by branches. A direct-mode CNAME may use `{branch}` in the hostname, for example `{branch}.omattic.com/api`; W7S replaces it with the sanitized Git branch name before validating and attaching the route. The default mode remains `prefixed`, where non-main branches receive a branch-prefixed custom hostname.
 
 D1 migration files are applied once in sorted order and tracked in the application database.
 

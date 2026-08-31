@@ -12,7 +12,7 @@
 ## Active Priorities
 
 - Monorepo deployments can declare a stable `name` in each leaf `w7s.json`. W7S scopes every existing repository-based deployment surface through an effective application identity, so sibling folders do not overwrite each other.
-- Permanent tenant branches can set `routing.customDomainBranchMode` to `direct` and `routing.defaultDomain` to `false`, attaching only their declared custom hostname without a generated `*.w7s.cloud` route.
+- Permanent tenant branches can set `routing.customDomainBranchMode` to `direct` and `routing.defaultDomain` to `false`, attaching only their declared custom hostname without a generated `*.w7s.cloud` route. Direct-mode CNAME hostnames may contain `{branch}`, which resolves to the sanitized source branch so one tenant template can provision `demo.omattic.com`, `inglesconliza.omattic.com`, and later workspaces without branch-specific commits.
 - Native deployments receive branch, full commit hash, deployment time, source repository, and application identity as W7S metadata bindings plus legacy health metadata aliases.
 - Queue declarations may expose native producer bindings while W7S keeps isolated queue provisioning and HTTP consumer delivery.
 - W7S Core dispatches Cloudflare Email Routing events to the standalone `omattic/inbox-gateway` production deployment by default, with environment overrides available when needed.

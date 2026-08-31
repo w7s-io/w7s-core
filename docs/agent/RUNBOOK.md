@@ -22,6 +22,14 @@ For a permanent tenant branch that must not use `w7s.cloud`, use:
 }
 ```
 
+Use a branch-derived custom domain in that app's `CNAME`:
+
+```text
+{branch}.omattic.com/api
+```
+
+Deploy branch `demo` and confirm the response attaches `demo.omattic.com/api`, not the literal placeholder or another tenant's hostname.
+
 For framework-generated multi-module Workers, retain the generated `wrangler.json` beside the entrypoint and set `no_bundle: true`. W7S will upload every JavaScript module under that native root, including modules reachable only through dynamic imports. Verify both a lightweight route such as `/health` and an SSR route after deployment.
 
 ## Email Binding Verification

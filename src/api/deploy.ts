@@ -240,7 +240,12 @@ export const handleDeploy = async (c: HonoContext) => {
   const branchCustomDomainPrefix = sanitizeScriptPart(branch);
   let customDomains: ReturnType<typeof readCustomDomains>;
   try {
-    const declaredCustomDomains = readCustomDomains(archive);
+    const declaredCustomDomains = readCustomDomains(
+      archive,
+      appManifest.routing.customDomainBranchMode === "direct"
+        ? { branch: branchCustomDomainPrefix }
+        : undefined
+    );
     customDomains = customDomainsEnabled
       ? declaredCustomDomains
       : declaredCustomDomains.map((route) => branchCustomDomain(route, branchCustomDomainPrefix));

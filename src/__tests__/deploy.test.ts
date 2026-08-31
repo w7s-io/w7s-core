@@ -785,7 +785,7 @@ describe("deploy API", () => {
     const response = await app.fetch(
       deployRequest(
         {
-          CNAME: "inglesconliza.omattic.com/api\n",
+          CNAME: "{branch}.omattic.com/api\n",
           "w7s.json": JSON.stringify({
             name: "support-api",
             routing: {
@@ -818,6 +818,43 @@ describe("deploy API", () => {
         defaultDomain: false,
         customDomainBranchMode: "direct"
       }
+    });
+  });
+
+  it("expands direct tenant domain branch placeholders", async () => {
+    vi.stubGlobal("fetch", stubCustomDomainFetch({ repository: "omattic/inbox", zoneName: "omattic.com" }));
+    const env = createTestEnv({ CLOUDFLARE_API_TOKEN: "cf-token" });
+    const response = await app.fetch(
+      deployRequest(
+        {
+          CNAME: "{branch}.omattic.com/templates-api\n",
+          "w7s.json": JSON.stringify({
+            name: "templates-api",
+            routing: {
+              defaultDomain: false,
+              customDomainBranchMode: "direct"
+            }
+          }),
+          "dist/client/index.html": "<h1>Templates API</h1>"
+        },
+        {
+          "x-github-repository": "omattic/inbox",
+          "x-github-branch": "demo",
+          "x-w7s-application": "templates-api"
+        }
+      ),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as {
+      data?: { url?: string; deployment?: DeploymentRecord; customDomains?: string[] };
+    };
+    expect(body.data?.url).toBe("https://demo.omattic.com/templates-api/");
+    expect(body.data?.customDomains).toEqual(["demo.omattic.com/templates-api"]);
+    expect(body.data?.deployment).toMatchObject({
+      branch: "demo",
+      customDomains: ["demo.omattic.com/templates-api"]
     });
   });
 

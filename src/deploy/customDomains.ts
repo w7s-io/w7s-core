@@ -100,7 +100,10 @@ const normalizeCustomDomainRoute = (value: string): CustomDomainRoute | null => 
   return { hostname, pathPrefix };
 };
 
-export const readCustomDomains = (archive: DeployArchive) => {
+export const readCustomDomains = (
+  archive: DeployArchive,
+  templateValues?: { branch?: string }
+) => {
   const routes = new Map<string, CustomDomainRoute>();
   for (const path of CNAME_PATHS) {
     const text = readTextFile(archive, path);
@@ -110,7 +113,10 @@ export const readCustomDomains = (archive: DeployArchive) => {
       .map((line) => line.trim())
       .filter((line) => line && !line.startsWith("#"));
     for (const line of lines) {
-      const route = normalizeCustomDomainRoute(line);
+      const expandedLine = templateValues?.branch
+        ? line.replaceAll(/\{branch\}/gi, templateValues.branch)
+        : line;
+      const route = normalizeCustomDomainRoute(expandedLine);
       if (route) routes.set(customDomainRouteDisplay(route), route);
     }
   }
