@@ -369,6 +369,12 @@ const normalizeCustomDomainPathPrefix = (pathPrefix?: string) => {
 const customDomainRoutesKey = (hostname: string) =>
   `custom_domain_routes:v1:${hostname.trim().toLowerCase()}`;
 
+const customDomainRouteRecordPrefix = (hostname?: string) =>
+  `custom_domain_route:v2:${hostname?.trim().toLowerCase() ?? ""}`;
+
+const customDomainRouteRecordKey = (hostname: string, pathPrefix?: string) =>
+  `${customDomainRouteRecordPrefix(hostname)}:${encodeURIComponent(normalizeCustomDomainPathPrefix(pathPrefix))}`;
+
 const routeMappingKey = (hostname: string, pathPrefix?: string) =>
   `${hostname.trim().toLowerCase()}\0${normalizeCustomDomainPathPrefix(pathPrefix)}`;
 
@@ -715,7 +721,13 @@ export const storeCustomDomainMappings = async (
         rootMapping
           ? writeMetadataEdgeCache(key, rootMapping, CUSTOM_DOMAIN_CACHE_TTL_MS)
           : deleteMetadataEdgeCache(key),
-        env.DEPLOYMENTS_KV.put(routesKey, JSON.stringify(sortedMappings))
+        env.DEPLOYMENTS_KV.put(routesKey, JSON.stringify(sortedMappings)),
+        ...mappings.map((mapping) =>
+          env.DEPLOYMENTS_KV.put(
+            customDomainRouteRecordKey(mapping.hostname, mapping.pathPrefix),
+            JSON.stringify(mapping)
+          )
+        )
       ]);
     })
   );
@@ -797,6 +809,33 @@ export const replaceCustomDomainMappings = async (
     cursor = listed.list_complete ? undefined : listed.cursor;
   } while (cursor);
 
+  cursor = undefined;
+  do {
+    const listed: Awaited<ReturnType<KVNamespace["list"]>> = await env.DEPLOYMENTS_KV.list({
+      prefix: customDomainRouteRecordPrefix(),
+      cursor
+    });
+    await Promise.all(
+      listed.keys.map(async (entry) => {
+        const raw = await env.DEPLOYMENTS_KV.get(entry.name, "json");
+        if (!raw || typeof raw !== "object") return;
+        const mapping = raw as Partial<CustomDomainMapping>;
+        if (
+          !isCustomDomainMapping(mapping) ||
+          mapping.orgSlug !== record.orgSlug ||
+          mapping.repoSlug !== record.repoSlug ||
+          mapping.environment !== record.environment ||
+          wanted.has(routeMappingKey(mapping.hostname, mapping.pathPrefix)) ||
+          (staleHostnamePrefix && !mapping.hostname.startsWith(staleHostnamePrefix))
+        ) {
+          return;
+        }
+        await env.DEPLOYMENTS_KV.delete(entry.name);
+      })
+    );
+    cursor = listed.list_complete ? undefined : listed.cursor;
+  } while (cursor);
+
   await storeCustomDomainMappings(env, record, normalizedRoutes);
 };
 
@@ -866,7 +905,20 @@ export const loadCustomDomainRouteMappings = async (
 ) => {
   const normalizedHostname = hostname.trim().toLowerCase();
   const routesKey = customDomainRoutesKey(normalizedHostname);
-  const raw = await env.DEPLOYMENTS_KV.get(routesKey, "json");
+  const normalizedPathname = normalizeCustomDomainPathPrefix(pathname);
+  const pathSegments = normalizedPathname.split("/").filter(Boolean);
+  const candidatePrefixes = [
+    ...pathSegments.map((_segment, index) => `/${pathSegments.slice(0, pathSegments.length - index).join("/")}`),
+    "/"
+  ];
+  const [raw, routeRecords] = await Promise.all([
+    env.DEPLOYMENTS_KV.get(routesKey, "json"),
+    Promise.all(
+      candidatePrefixes.map((pathPrefix) =>
+        env.DEPLOYMENTS_KV.get(customDomainRouteRecordKey(normalizedHostname, pathPrefix), "json")
+      )
+    )
+  ]);
   const routeMappings = Array.isArray(raw)
     ? (raw as Partial<CustomDomainMapping>[])
         .filter((mapping): mapping is CustomDomainMapping =>
@@ -879,6 +931,16 @@ export const loadCustomDomainRouteMappings = async (
           pathMatchesPrefix(pathname, mapping.pathPrefix)
         )
     : [];
+  for (const rawRouteRecord of routeRecords) {
+    if (!rawRouteRecord || typeof rawRouteRecord !== "object") continue;
+    const mapping = rawRouteRecord as Partial<CustomDomainMapping>;
+    if (
+      isCustomDomainMapping(mapping, normalizedHostname) &&
+      pathMatchesPrefix(pathname, mapping.pathPrefix)
+    ) {
+      routeMappings.push(mapping);
+    }
+  }
   const legacyRootMapping = await loadCustomDomainMapping(env, normalizedHostname);
   if (legacyRootMapping && pathMatchesPrefix(pathname, legacyRootMapping.pathPrefix)) {
     routeMappings.push(legacyRootMapping);

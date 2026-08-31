@@ -22,6 +22,8 @@ Permanent tenant branches may opt into direct custom domains with `routing.custo
 
 Direct-mode CNAME entries may use a `{branch}` hostname placeholder. W7S expands it with the sanitized source branch before validation and route attachment. This keeps one monorepo template deployable to permanent tenant hostnames without per-branch CNAME rewrites, while literal direct CNAME entries preserve their existing behavior.
 
+Custom-domain route ownership is stored independently per hostname and path prefix in v2 KV records. The legacy per-host aggregate remains populated for compatibility, but runtime routing merges both forms. Parallel sibling app deployments can therefore update different paths without a last-writer-wins loss in the aggregate KV record.
+
 W7S injects `W7S_BRANCH`, `W7S_COMMIT_HASH`, `W7S_DEPLOYED_AT`, `W7S_SOURCE_REPOSITORY`, and `W7S_APPLICATION` into native deployments. It also injects `GIT_BRANCH`, `GIT_COMMIT_HASH`, `BRANCH`, `COMMIT_HASH`, and `DEPLOYED_AT` aliases so migrated Workers expose complete health metadata without repository-specific deploy wrappers.
 
 ## 2026-08-30: Native Queue Producers And Shared Email Ingress

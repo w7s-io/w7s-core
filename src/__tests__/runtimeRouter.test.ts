@@ -725,6 +725,7 @@ describe("runtime router", () => {
         pathPrefix: "/compress-video"
       }
     ]);
+    await env.DEPLOYMENTS_KV.delete("custom_domain_routes:v1:omattic.com");
 
     const rootResponse = await app.fetch(
       new Request("https://omattic.com/", {

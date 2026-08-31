@@ -30,6 +30,8 @@ Use a branch-derived custom domain in that app's `CNAME`:
 
 Deploy branch `demo` and confirm the response attaches `demo.omattic.com/api`, not the literal placeholder or another tenant's hostname.
 
+When several apps attach sibling paths on the same tenant hostname, deploy them concurrently and verify every path remains reachable after the last workflow finishes. Inspect `custom_domain_route:v2:<hostname>:` records when a path unexpectedly falls through to the root app; the legacy `custom_domain_routes:v1:<hostname>` aggregate is not the concurrency source of truth.
+
 For framework-generated multi-module Workers, retain the generated `wrangler.json` beside the entrypoint and set `no_bundle: true`. W7S will upload every JavaScript module under that native root, including modules reachable only through dynamic imports. Verify both a lightweight route such as `/health` and an SSR route after deployment.
 
 ## Email Binding Verification
