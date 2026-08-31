@@ -27,6 +27,7 @@ const aiAllowedModels = process.env.W7S_AI_ALLOWED_MODELS?.trim() || aiDefaultMo
 const aiMaxRequestBytes = process.env.W7S_AI_MAX_REQUEST_BYTES?.trim() || "32768";
 const staticRetentionDays = process.env.W7S_STATIC_RETENTION_DAYS?.trim() || "7";
 const usageRetentionDays = process.env.W7S_USAGE_RETENTION_DAYS?.trim() || "14";
+const limitExemptOrganizations = process.env.W7S_LIMIT_EXEMPT_ORGS?.trim() || "omattic";
 const workerScriptRetentionDays = process.env.W7S_WORKER_SCRIPT_RETENTION_DAYS?.trim() || "7";
 const workflowName = process.env.W7S_WORKFLOW_NAME?.trim() || "w7s-workflows";
 const userWorkerCpuMs = process.env.W7S_USER_WORKER_CPU_MS?.trim() || "50";
@@ -199,6 +200,7 @@ const config = {
     W7S_AI_MAX_REQUEST_BYTES: aiMaxRequestBytes,
     W7S_STATIC_RETENTION_DAYS: staticRetentionDays,
     W7S_USAGE_RETENTION_DAYS: usageRetentionDays,
+    W7S_LIMIT_EXEMPT_ORGS: limitExemptOrganizations,
     W7S_WORKER_SCRIPT_RETENTION_DAYS: workerScriptRetentionDays,
     ...(disableWorkerLogs ? { W7S_DISABLE_WORKER_LOGS: disableWorkerLogs } : {}),
     ...(analyticsDataset ? { W7S_ANALYTICS_DATASET: analyticsDataset } : {}),
