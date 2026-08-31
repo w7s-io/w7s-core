@@ -409,6 +409,8 @@ The script uses `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` or `ACCOUNT_I
 
 The internal `checkUsageLimit(...)` helper reports `wouldBlock: true` when projected usage would exceed policy. Runtime, deploy, RPC, queue-send, and workflow-start requests are wired to this check. The hourly Cloudflare collector can also suspend an app until the next UTC day when reliably attributed direct resource usage exceeds policy.
 
+Set `W7S_LIMIT_EXEMPT_ORGS` to a comma-separated list of GitHub organization slugs that should retain usage telemetry but bypass W7S daily, burst, suspension, and free-tier deployment-shape enforcement. This does not bypass Cloudflare platform limits.
+
 These counters are approximate because KV updates are read-modify-write operations and Cloudflare analytics can arrive late. Treat them as operational/product visibility and free-tier protection, not strict billing-grade quota accounting.
 
 ## Workflows

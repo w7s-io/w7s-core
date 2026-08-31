@@ -4,6 +4,7 @@
 
 - W7S core routes deployed apps from default domains, repo-prefix paths, and custom domains.
 - Runtime usage is accounted through `runtime.request` and app suspension is enforced by W7S cost guards.
+- The `omattic` organization is exempt from W7S-owned daily, burst, suspension, and free-tier deployment-shape enforcement. Usage is still recorded for observability, and Cloudflare platform limits still apply.
 - Short-window `runtime.request` limits can suspend apps when real application traffic exceeds policy.
 - Scanner traffic against mapped custom domains can generate W7S-owned `not_found` 404 responses before the app runtime does useful work.
 

@@ -1,5 +1,6 @@
 import type { Env } from "./env";
 import { json } from "./http";
+import { isLimitExemptOrganization } from "./limitExemptions";
 import { sanitizeScriptPart } from "./names";
 import type { UsageLimitScope } from "./usageLimits";
 
@@ -163,6 +164,7 @@ export const checkRateLimit = async (
     at?: Date;
   }
 ) => {
+  if (isLimitExemptOrganization(env, params.orgSlug)) return null;
   const metric = params.metric.trim().toLowerCase();
   const policies = matchingPolicies(metric);
   if (policies.length === 0) return null;

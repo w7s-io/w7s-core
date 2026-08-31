@@ -7,6 +7,7 @@ import { jsonError, jsonSuccess, parseBearerToken } from "../http";
 import { parseGitHubRepository, verifyGitHubRepoAccess } from "../deploy/githubAuth";
 import { readDeployArchive } from "../deploy/archive";
 import { validateDeployLimits } from "../deploy/deployLimits";
+import { isLimitExemptOrganization } from "../limitExemptions";
 import {
   detectNativeWorkerRoots,
   detectWorkerEntrypoint,
@@ -275,12 +276,14 @@ export const handleDeploy = async (c: HonoContext) => {
   if (!hasNativeBackend && appManifest.bindings.email.length > 0) {
     return jsonError("Email bindings require a native backend deployment.", 400);
   }
-  const deployLimitErrors = validateDeployLimits({
-    archive,
-    manifest: appManifest,
-    customDomains,
-    allowAssetOnly: hasNativeBackend
-  });
+  const deployLimitErrors = isLimitExemptOrganization(c.env, orgSlug)
+    ? []
+    : validateDeployLimits({
+        archive,
+        manifest: appManifest,
+        customDomains,
+        allowAssetOnly: hasNativeBackend
+      });
   if (deployLimitErrors.length > 0) {
     return jsonError("Deploy exceeds W7S free-tier shape limits.", 400, {
       limits: deployLimitErrors

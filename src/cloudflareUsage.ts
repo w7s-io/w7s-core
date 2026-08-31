@@ -1,6 +1,7 @@
 import { clearAppLimitState, suspendAppForLimits } from "./appLimits";
 import type { Env } from "./env";
 import { putKvWithRetry } from "./kvRetry";
+import { isLimitExemptOrganization } from "./limitExemptions";
 import { sanitizeScriptPart } from "./names";
 import { notifyUsageCollectionFailures } from "./notifications";
 import {
@@ -720,6 +721,14 @@ const collectDeploymentMetrics = async (env: Env, deployment: DeploymentRecord, 
     repoSlug: record.repoSlug,
     repository: record.repository
   });
+  if (isLimitExemptOrganization(env, deployment.orgSlug)) {
+    await clearAppLimitState(env, {
+      environment: deployment.environment,
+      orgSlug: deployment.orgSlug,
+      repoSlug: deployment.repoSlug
+    });
+    return record;
+  }
   const effectivePolicies = await loadEffectiveUsageLimitPolicies(env, {
     environment: deployment.environment,
     orgSlug: deployment.orgSlug,

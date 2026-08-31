@@ -1,4 +1,5 @@
 import type { Env } from "./env";
+import { isLimitExemptOrganization } from "./limitExemptions";
 import { sanitizeScriptPart } from "./names";
 import {
   loadUsageDailyRollup,
@@ -504,6 +505,7 @@ export const checkUsageLimit = async (
     at?: Date;
   }
 ): Promise<UsageLimitCheck | null> => {
+  if (isLimitExemptOrganization(env, params.orgSlug)) return null;
   const metric = params.metric.trim().toLowerCase();
   const requestedUnits = positiveInteger(params.units ?? 1) ?? 1;
   const at = params.at ?? new Date();

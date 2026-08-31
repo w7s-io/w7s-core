@@ -1,5 +1,11 @@
 # W7S Core Agent Decisions
 
+## 2026-08-31: Organization-Level W7S Limit Exemptions
+
+`W7S_LIMIT_EXEMPT_ORGS` is a comma-separated list of GitHub organization slugs that bypass W7S-owned daily usage limits, short-window burst limits, app suspension enforcement, and free-tier deployment-shape caps. W7S continues collecting usage telemetry for exempt organizations. Cloudflare account and product limits remain outside this exemption.
+
+The hosted control plane configures `omattic` as exempt because Omattic is the operator-owned product fleet and its tenant workloads should not be suspended by W7S free-tier protection.
+
 ## 2026-08-30: No-Bundle Workers Upload Their Complete Module Tree
 
 When a native Worker's adjacent `wrangler.json` declares `no_bundle: true`, W7S uploads every JavaScript module under that Worker root instead of limiting the upload to the statically discovered import graph.

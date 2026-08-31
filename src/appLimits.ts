@@ -1,5 +1,6 @@
 import type { Env } from "./env";
 import { json } from "./http";
+import { isLimitExemptOrganization } from "./limitExemptions";
 import { sanitizeScriptPart } from "./names";
 import { notifyAppSuspended } from "./notifications";
 import type { UsageLimitWarning } from "./usageLimits";
@@ -217,6 +218,7 @@ export const suspendAppForLimits = async (
     resumeAfter?: Date;
   }
 ) => {
+  if (isLimitExemptOrganization(env, params.orgSlug)) return;
   const at = params.at ?? new Date();
   const resumeAfter = params.resumeAfter ?? new Date(nextUtcDayIso(at));
   await storeAppLimitState(env, {
@@ -308,6 +310,7 @@ export const enforceAppNotSuspended = async (
     request?: Request;
   }
 ) => {
+  if (isLimitExemptOrganization(env, params.orgSlug)) return null;
   const state = await loadAppLimitState(env, params);
   return state ? appSuspendedResponse(state, params.request) : null;
 };
