@@ -46,6 +46,8 @@ The Cloudflare account must already have Email Service sending enabled for the s
 
 ## Usage Limit Investigation
 
+GitHub Actions deploys `wrangler.generated.jsonc`, not the canonical Wrangler file. Before deploying an operator exemption change, confirm both the workflow environment and `scripts/prepare-cloudflare-config.mjs` carry `W7S_LIMIT_EXEMPT_ORGS` into the generated `vars` object.
+
 List current app suspension state:
 
 ```sh
