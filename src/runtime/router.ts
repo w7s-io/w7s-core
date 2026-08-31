@@ -23,6 +23,9 @@ import { recordUsageEvent } from "../usage";
 const isReservedPlatformPath = (path: string) =>
   path === "/api/v1" || path.startsWith("/api/v1/");
 
+const isInternalDeliveryPath = (path: string) =>
+  path === "/_w7s" || path.startsWith("/_w7s/");
+
 const splitRepoPath = (path: string) => {
   const segments = path.split("/").map((segment) => segment.trim()).filter(Boolean);
   const repoSlug = normalizeSlug(segments[0] ?? "");
@@ -296,6 +299,9 @@ export const resolveRuntimeRequest = async (
     : await loadCustomDomainRouteMappings(env, requestHost, url.pathname);
   markTiming("host");
   if (!host && (!customDomains || customDomains.length === 0)) return null;
+  if (isInternalDeliveryPath(url.pathname)) {
+    return new Response("Not found.", { status: 404 });
+  }
 
   const primaryCustomDomain = customDomains?.[0] ?? null;
   const orgSlug = host?.orgSlug ?? primaryCustomDomain!.orgSlug;

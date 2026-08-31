@@ -86,6 +86,8 @@ The response must expose `branch`, `commitHash`, and `deployedAt`.
 
 For shared Email Routing, point the routing rule at the W7S Core Worker. The default target is the `production` environment of `omattic/inbox-gateway`. Set `W7S_EMAIL_GATEWAY_ORG`, `W7S_EMAIL_GATEWAY_REPO`, `W7S_EMAIL_GATEWAY_APPLICATION`, or `W7S_EMAIL_GATEWAY_ENVIRONMENT` only when an alternate deployment is required.
 
+W7S Core passes the single-use raw email stream to the gateway for workspace validation and signing. The gateway returns that signed stream, and Core resolves `https://<workspace>.omattic.com/api/email/inbound/raw` internally through the custom-domain route registry. Never make the gateway fetch that public hostname during the active email event.
+
 ## ISO Planning
 
 The hosted W7S ISO readiness workspace is:

@@ -14,6 +14,8 @@
 - Native deployments receive branch, full commit hash, deployment time, source repository, and application identity as W7S metadata bindings plus legacy health metadata aliases.
 - Queue declarations may expose native producer bindings while W7S keeps isolated queue provisioning and HTTP consumer delivery.
 - W7S Core dispatches Cloudflare Email Routing events to the standalone `omattic/inbox-gateway` production deployment by default, with environment overrides available when needed.
+- The gateway returns a signed raw-envelope stream to W7S Core. Core resolves the tenant custom-domain path and dispatches the stream directly to the tenant Worker, avoiding a recursive public fetch during the Email Routing event.
+- Public runtime routing returns 404 for `/_w7s/*`; queue, schedule, workflow, and email delivery reach those routes only through direct platform dispatch.
 - Native Workers whose `wrangler.json` declares `no_bundle: true` upload their complete JavaScript module tree. This preserves framework modules reached only through runtime `import()`, including Nitro SSR services and lazy route chunks.
 
 - Keep custom-domain scanner noise from suspending customer apps when W7S returns cheap `not_found` 404 responses.

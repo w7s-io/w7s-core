@@ -1104,6 +1104,53 @@ describe("runtime router", () => {
     expect(redirectModes).toEqual(["manual"]);
   });
 
+  it("does not expose internal delivery paths through custom domains", async () => {
+    const calls: string[] = [];
+    const env = createTestEnv({
+      DISPATCHER: {
+        get: () => ({
+          fetch: async (input) => {
+            const request = input instanceof Request ? input : new Request(input);
+            calls.push(new URL(request.url).pathname);
+            return new Response("internal");
+          }
+        })
+      }
+    });
+    const record: DeploymentRecord = {
+      version: 1,
+      orgSlug: "omattic",
+      repoSlug: "inbox-gateway",
+      environment: "production",
+      repository: "omattic/inbox-gateway",
+      branch: "main",
+      commitSha: "abc",
+      deployedAt: new Date().toISOString(),
+      targets: {
+        worker: {
+          namespace: "w7s-isolate",
+          scriptName: "omattic--inbox-gateway--production",
+          entrypoint: "backend/index.js",
+          compatibilityDate: "2026-05-23",
+          startupTimeMs: null
+        }
+      }
+    };
+    await storeDeploymentRecord(env, record);
+    await storeCustomDomainMappings(env, record, ["inbox.omattic.com"]);
+
+    const response = await app.fetch(
+      new Request("https://inbox.omattic.com/_w7s/email", {
+        method: "POST",
+        body: "raw email"
+      }),
+      env
+    );
+
+    expect(response.status).toBe(404);
+    expect(calls).toEqual([]);
+  });
+
   it("dispatches native worker requests with repo path stripped", async () => {
     const calls: string[] = [];
     const env = createTestEnv({

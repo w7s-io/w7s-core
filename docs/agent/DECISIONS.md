@@ -22,6 +22,8 @@ A queue object may declare `binding`. W7S binds that name as a native Cloudflare
 
 The W7S Core email handler dispatches raw Email Routing events to the standalone `omattic/inbox-gateway` production deployment by default. An application-scoped target remains configurable for compatibility. The gateway remains stateless and tenant storage stays inside the selected tenant deployment.
 
+Email Routing uses a two-stage direct dispatch. W7S sends the raw stream to the gateway for recipient resolution and signing, then dispatches the returned envelope directly to the tenant route. Public custom-domain requests cannot access `/_w7s/*` internal delivery paths.
+
 ## 2026-07-12: Scanner Not-Found Bursts Do Not Suspend Apps
 
 W7S records all routed requests as usage, including W7S-generated `not_found` 404 responses on mapped custom domains.
