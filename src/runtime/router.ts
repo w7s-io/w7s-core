@@ -19,6 +19,7 @@ import { dispatchWorker } from "./dispatch";
 import { enforceAppNotSuspended, suspendAppForLimits } from "../appLimits";
 import { checkBlockedUsageLimit, costGuardExceededMessage } from "../usageEnforcement";
 import { recordUsageEvent } from "../usage";
+import { platformDeploymentNotFoundResponse } from "./notFound";
 
 const isReservedPlatformPath = (path: string) =>
   path === "/api/v1" || path.startsWith("/api/v1/");
@@ -97,7 +98,8 @@ const shouldRedirectStaticRepoRoot = (request: Request, repoPath: string) => {
 };
 
 const shouldShowDeployShowcase = (request: Request) =>
-  request.method === "GET" || request.method === "HEAD";
+  (request.method === "GET" || request.method === "HEAD") &&
+  request.headers.get("sec-fetch-mode") === "navigate";
 
 const displayRequestUrl = (request: Request, host: string) => {
   const url = new URL(request.url);
@@ -300,7 +302,7 @@ export const resolveRuntimeRequest = async (
   markTiming("host");
   if (!host && (!customDomains || customDomains.length === 0)) return null;
   if (isInternalDeliveryPath(url.pathname)) {
-    return new Response("Not found.", { status: 404 });
+    return platformDeploymentNotFoundResponse(request);
   }
 
   const primaryCustomDomain = customDomains?.[0] ?? null;
@@ -460,7 +462,7 @@ export const resolveRuntimeRequest = async (
         request,
         startedAt,
         deployment,
-        response: new Response("Not found.", { status: 404 }),
+        response: platformDeploymentNotFoundResponse(request),
         source: "not_found",
         mount: candidate.mount,
         executionCtx,
@@ -492,5 +494,5 @@ export const resolveRuntimeRequest = async (
     return response;
   }
 
-  return new Response("Deployment not found.", { status: 404 });
+  return platformDeploymentNotFoundResponse(request);
 };

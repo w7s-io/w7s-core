@@ -71,6 +71,44 @@ describe("landing page", () => {
     expect(body).not.toContain("build-command");
   });
 
+  it("shows W7S branded 404s for unresolved platform paths", async () => {
+    const response = await app.fetch(
+      new Request("https://w7s.cloud/missing", {
+        headers: {
+          "sec-fetch-mode": "navigate"
+        }
+      }),
+      createTestEnv()
+    );
+    const body = await response.text();
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).toContain("text/html");
+    expect(body).toContain("Deployment not connected");
+    expect(body).toContain("W7S Cloud");
+    expect(body).toContain("w7s.cloud/missing");
+  });
+
+  it("returns JSON for unresolved platform paths when requests are not navigations", async () => {
+    const response = await app.fetch(
+      new Request("https://w7s.cloud/missing", {
+        headers: {
+          "sec-fetch-mode": "cors"
+        }
+      }),
+      createTestEnv()
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).toBe("application/json");
+    await expect(response.json()).resolves.toMatchObject({
+      status: "error",
+      code: "deployment_not_connected",
+      host: "w7s.cloud",
+      path: "/missing"
+    });
+  });
+
   it("returns the indexable landing page for social preview crawlers on the default page", async () => {
     const response = await app.fetch(
       new Request("https://w7s.cloud/", {

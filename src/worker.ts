@@ -34,6 +34,7 @@ import {
   handleTelegramWebhookInfo,
   notifyDeployResponse
 } from "./notifications";
+import { platformDeploymentNotFoundResponse } from "./runtime/notFound";
 
 export { W7SWorkflow };
 
@@ -58,7 +59,7 @@ const resolveCustomDomainRuntimeRequest = async (c: Context<{ Bindings: Env }>) 
 
   return (
     await resolveRuntimeRequest(request, c.env, optionalExecutionCtx(c))
-  ) ?? new Response("Not found.", { status: 404 });
+  ) ?? platformDeploymentNotFoundResponse(request);
 };
 
 app.use("*", async (c, next) => {
@@ -126,6 +127,10 @@ app.all("*", async (c) => {
 
   const seoResponse = platformSeoResponse(c.req.raw, c.env);
   if (seoResponse) return seoResponse;
+
+  if (path !== "/") {
+    return platformDeploymentNotFoundResponse(c.req.raw);
+  }
 
   return new Response(c.req.method === "HEAD" ? null : landingHtml(), {
     status: 200,

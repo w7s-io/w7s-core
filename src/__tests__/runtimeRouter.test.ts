@@ -414,7 +414,8 @@ describe("runtime router", () => {
     const response = await app.fetch(
       new Request("https://sadasant.w7s.cloud/", {
         headers: {
-          host: "sadasant.w7s.cloud"
+          host: "sadasant.w7s.cloud",
+          "sec-fetch-mode": "navigate"
         }
       }),
       env
@@ -455,7 +456,7 @@ describe("runtime router", () => {
     expect(body).not.toContain("example-fullstack-ts");
   });
 
-  it("returns no content for social preview crawlers on undeployed app URLs", async () => {
+  it("returns JSON for social preview crawlers on undeployed app URLs without navigation mode", async () => {
     const env = createTestEnv();
 
     const response = await app.fetch(
@@ -468,13 +469,17 @@ describe("runtime router", () => {
       env
     );
 
-    expect(response.status).toBe(204);
+    expect(response.status).toBe(404);
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(response.headers.get("x-robots-tag")).toBe(NO_PREVIEW_ROBOTS);
-    expect(await response.text()).toBe("");
+    expect(response.headers.get("content-type")).toBe("application/json");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "deployment_not_connected",
+      host: "sadasant.w7s.cloud",
+      path: "/missing-repo/"
+    });
   });
 
-  it("keeps undeployed app SEO discovery endpoints out of search", async () => {
+  it("returns JSON for undeployed app SEO discovery endpoints without navigation mode", async () => {
     const env = createTestEnv();
 
     const robots = await app.fetch(
@@ -485,9 +490,12 @@ describe("runtime router", () => {
       }),
       env
     );
-    expect(robots.status).toBe(200);
-    expect(robots.headers.get("x-robots-tag")).toBe(NO_PREVIEW_ROBOTS);
-    expect(await robots.text()).toBe("User-agent: *\nDisallow: /\n");
+    expect(robots.status).toBe(404);
+    expect(robots.headers.get("content-type")).toBe("application/json");
+    await expect(robots.json()).resolves.toMatchObject({
+      code: "deployment_not_connected",
+      path: "/robots.txt"
+    });
 
     const sitemap = await app.fetch(
       new Request("https://sadasant.w7s.cloud/sitemap.xml", {
@@ -498,8 +506,11 @@ describe("runtime router", () => {
       env
     );
     expect(sitemap.status).toBe(404);
-    expect(sitemap.headers.get("x-robots-tag")).toBe(NO_PREVIEW_ROBOTS);
-    expect(await sitemap.text()).toBe("Sitemap not available.");
+    expect(sitemap.headers.get("content-type")).toBe("application/json");
+    await expect(sitemap.json()).resolves.toMatchObject({
+      code: "deployment_not_connected",
+      path: "/sitemap.xml"
+    });
   });
 
   it("shows contextual deploy help for missing repo-prefixed deployments", async () => {
@@ -508,7 +519,8 @@ describe("runtime router", () => {
     const response = await app.fetch(
       new Request("https://sadasant.w7s.cloud/missing-repo/", {
         headers: {
-          host: "sadasant.w7s.cloud"
+          host: "sadasant.w7s.cloud",
+          "sec-fetch-mode": "navigate"
         }
       }),
       env
@@ -529,6 +541,29 @@ describe("runtime router", () => {
     expect(body).toContain('href="https://w7s.io/privacy"');
     expect(body).not.toContain("usage-check-only");
     expect(body).not.toContain("<code>sadasant/repo-name</code>");
+  });
+
+  it("returns JSON for undeployed app URLs that are not navigations", async () => {
+    const env = createTestEnv();
+
+    const response = await app.fetch(
+      new Request("https://sadasant.w7s.cloud/missing-repo/api", {
+        headers: {
+          host: "sadasant.w7s.cloud",
+          "sec-fetch-mode": "cors"
+        }
+      }),
+      env
+    );
+
+    expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).toBe("application/json");
+    await expect(response.json()).resolves.toMatchObject({
+      status: "error",
+      code: "deployment_not_connected",
+      host: "sadasant.w7s.cloud",
+      path: "/missing-repo/api"
+    });
   });
 
   it("serves same-name repo static deployments from the org root", async () => {
@@ -820,7 +855,11 @@ describe("runtime router", () => {
       );
 
       expect(response.status).toBe(404);
-      expect(await response.text()).toBe("Not found.");
+      await expect(response.json()).resolves.toMatchObject({
+        code: "deployment_not_connected",
+        host: "w7s.io",
+        path
+      });
     }
 
     const spaRoute = await app.fetch(
@@ -906,7 +945,11 @@ describe("runtime router", () => {
         env
       );
       expect(response.status).toBe(404);
-      expect(await response.text()).toBe("Not found.");
+      await expect(response.json()).resolves.toMatchObject({
+        code: "deployment_not_connected",
+        host: "scanner.example.com",
+        path: `/probe-${index}.env`
+      });
     }
 
     await expect(
@@ -999,7 +1042,11 @@ describe("runtime router", () => {
     );
 
     expect(response.status).toBe(404);
-    await expect(response.text()).resolves.toBe("Not found.");
+    await expect(response.json()).resolves.toMatchObject({
+      code: "deployment_not_connected",
+      host: "www.invoices-templates.com",
+      path: "/api/v1/deploy"
+    });
   });
 
   it("does not serve default domains when deployment routing disables them", async () => {
@@ -1026,7 +1073,8 @@ describe("runtime router", () => {
     const defaultDomainResponse = await app.fetch(
       new Request("https://guerrerocarlos.w7s.cloud/whereis/", {
         headers: {
-          host: "guerrerocarlos.w7s.cloud"
+          host: "guerrerocarlos.w7s.cloud",
+          "sec-fetch-mode": "navigate"
         }
       }),
       env
@@ -1149,6 +1197,7 @@ describe("runtime router", () => {
     );
 
     expect(response.status).toBe(404);
+    expect(response.headers.get("content-type")).toBe("application/json");
     expect(calls).toEqual([]);
   });
 

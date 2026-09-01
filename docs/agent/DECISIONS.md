@@ -1,5 +1,11 @@
 # W7S Core Agent Decisions
 
+## 2026-09-01: W7S Owns Unresolved Runtime Route Errors
+
+When a request reaches W7S but no deployment is attached to the resolved route, W7S returns a `deployment_not_connected` 404 from the platform Worker.
+
+Top-level browser navigations, identified by `Sec-Fetch-Mode: navigate`, receive a branded W7S HTML page. Other requests receive JSON with the same error code, host, and path. This keeps customer-facing misses on brand while preserving machine-readable behavior for API clients, fetch requests, scanners, and scripts.
+
 ## 2026-08-31: Organization-Level W7S Limit Exemptions
 
 `W7S_LIMIT_EXEMPT_ORGS` is a comma-separated list of GitHub organization slugs that bypass W7S-owned daily usage limits, short-window burst limits, app suspension enforcement, and free-tier deployment-shape caps. W7S continues collecting usage telemetry for exempt organizations. Cloudflare account and product limits remain outside this exemption.
