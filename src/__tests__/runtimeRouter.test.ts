@@ -11,7 +11,6 @@ import type { DeploymentRecord, StaticSiteManifest } from "../storage/deployment
 import { loadAppLimitState, suspendAppForLimits } from "../appLimits";
 import { recordUsageEvent } from "../usage";
 import { usageLimitPolicyKey } from "../usageLimits";
-import { NO_PREVIEW_ROBOTS } from "../noPreview";
 
 const expectLandingHero = (body: string) => {
   expect(body).toMatch(/<section class="hero">[\s\S]*<h1>[\s\S]+<\/h1>/);
@@ -408,7 +407,7 @@ describe("runtime router", () => {
     expect(await response.text()).toContain("Deploy From GitHub");
   });
 
-  it("shows contextual deploy help for empty org root hosts", async () => {
+  it("shows a simple deployment error for empty org root hosts", async () => {
     const env = createTestEnv();
 
     const response = await app.fetch(
@@ -422,38 +421,15 @@ describe("runtime router", () => {
     );
     const body = await response.text();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(404);
     expect(response.headers.get("content-type")).toContain("text/html");
     expect(response.headers.get("cache-control")).toBe("no-store");
-    expect(response.headers.get("x-robots-tag")).toBe(NO_PREVIEW_ROBOTS);
-    expect(body).toContain(`<meta name="robots" content="${NO_PREVIEW_ROBOTS}" />`);
-    expect(body).not.toContain("og:");
-    expect(body).not.toContain("twitter:");
-    expectLandingHero(body);
-    expect(body).toContain('<section class="target hover-lift">');
-    expect(body).toContain("<code>https://sadasant.w7s.cloud/</code>");
-    expect(body).toContain("https://github.com/sadasant/sadasant");
-    expect(body).toContain("<code>sadasant/sadasant</code>");
-    expect(body).toContain("https://sadasant.w7s.cloud/");
-    expect(body).toContain("<code>https://sadasant.w7s.cloud/repo-name/</code>");
-    expect(body).toContain("<code>sadasant/repo-name</code>");
-    expect(body).toContain("push:");
-    expect(body).toContain("workflow_dispatch");
-    expect(body).toContain("id-token: write");
-    expect(body).toContain("w7s-io/w7s-cloud@v1");
-    expect(body).toContain("© 2026 W7S SERVICES LLC");
-    expect(body).toContain('href="https://w7s.io/terms"');
-    expect(body).toContain('href="https://w7s.io/privacy"');
-    expect(body).toContain('<strong class="workflow-action">w7s-io/w7s-cloud@v1</strong>');
-    expect(body).not.toContain("token: ${{ github.token }}");
-    expect(body).not.toContain("schedule:");
-    expect(body).not.toContain("issues: write");
-    expect(body).not.toContain("usage-check-only");
-    expect(body).not.toContain("github.event_name == 'schedule'");
-    expect(body).toContain("branches:");
-    expect(body).not.toContain("install-command");
-    expect(body).not.toContain("build-command");
-    expect(body).not.toContain("example-fullstack-ts");
+    expect(body).toContain("<code>404 deployment_not_connected</code>");
+    expect(body).toContain(
+      "This W7S route is reachable, but there is no deployment attached to it yet."
+    );
+    expect(body).not.toContain("https://github.com/sadasant/sadasant");
+    expect(body).not.toContain("w7s-io/w7s-cloud@v1");
   });
 
   it("returns JSON for social preview crawlers on undeployed app URLs without navigation mode", async () => {
@@ -513,7 +489,7 @@ describe("runtime router", () => {
     });
   });
 
-  it("shows contextual deploy help for missing repo-prefixed deployments", async () => {
+  it("shows a simple deployment error for missing repo-prefixed deployments", async () => {
     const env = createTestEnv();
 
     const response = await app.fetch(
@@ -527,20 +503,14 @@ describe("runtime router", () => {
     );
     const body = await response.text();
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(404);
     expect(response.headers.get("content-type")).toContain("text/html");
-    expectLandingHero(body);
-    expect(body).toContain('<section class="target hover-lift">');
-    expect(body).toContain("<code>https://sadasant.w7s.cloud/missing-repo/</code>");
-    expect(body).toContain("https://github.com/sadasant/missing-repo");
-    expect(body).toContain("<code>sadasant/missing-repo</code>");
-    expect(body).toContain("https://sadasant.w7s.cloud/missing-repo/");
-    expect(body).toContain("w7s-io/w7s-cloud@v1");
-    expect(body).toContain("© 2026 W7S SERVICES LLC");
-    expect(body).toContain('href="https://w7s.io/terms"');
-    expect(body).toContain('href="https://w7s.io/privacy"');
-    expect(body).not.toContain("usage-check-only");
-    expect(body).not.toContain("<code>sadasant/repo-name</code>");
+    expect(body).toContain("<code>404 deployment_not_connected</code>");
+    expect(body).toContain(
+      "This W7S route is reachable, but there is no deployment attached to it yet."
+    );
+    expect(body).not.toContain("https://github.com/sadasant/missing-repo");
+    expect(body).not.toContain("w7s-io/w7s-cloud@v1");
   });
 
   it("returns JSON for undeployed app URLs that are not navigations", async () => {
@@ -1088,9 +1058,9 @@ describe("runtime router", () => {
       env
     );
 
-    expect(defaultDomainResponse.status).toBe(200);
+    expect(defaultDomainResponse.status).toBe(404);
     expect(await defaultDomainResponse.text()).toContain(
-      "<code>https://guerrerocarlos.w7s.cloud/whereis/</code>"
+      "<code>404 deployment_not_connected</code>"
     );
     expect(customDomainResponse.status).toBe(200);
     expect(await customDomainResponse.text()).toContain("Where is Carlos?");

@@ -4,7 +4,7 @@
 
 When a request reaches W7S but no deployment is attached to the resolved route, W7S returns a `deployment_not_connected` 404 from the platform Worker.
 
-Top-level browser navigations, identified by `Sec-Fetch-Mode: navigate`, receive a branded W7S HTML page. Other requests receive JSON with the same error code, host, and path. This keeps customer-facing misses on brand while preserving machine-readable behavior for API clients, fetch requests, scanners, and scripts.
+Top-level browser navigations, identified by `Sec-Fetch-Mode: navigate`, receive a minimal HTML page with only the error code and message. Other requests receive JSON with the same error code, host, and path. This keeps customer-facing misses owned by W7S while preserving machine-readable behavior for API clients, fetch requests, scanners, and scripts.
 
 ## 2026-08-31: Organization-Level W7S Limit Exemptions
 

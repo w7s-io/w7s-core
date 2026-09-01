@@ -84,9 +84,11 @@ describe("landing page", () => {
 
     expect(response.status).toBe(404);
     expect(response.headers.get("content-type")).toContain("text/html");
-    expect(body).toContain("Deployment not connected");
-    expect(body).toContain("W7S Cloud");
-    expect(body).toContain("w7s.cloud/missing");
+    expect(body).toContain("<code>404 deployment_not_connected</code>");
+    expect(body).toContain(
+      "This W7S route is reachable, but there is no deployment attached to it yet."
+    );
+    expect(body).not.toContain("w7s.cloud/missing");
   });
 
   it("returns JSON for unresolved platform paths when requests are not navigations", async () => {

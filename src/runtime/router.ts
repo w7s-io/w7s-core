@@ -8,13 +8,6 @@ import {
 import { cleanHost, resolveRuntimeHost } from "./host";
 import { resolveStaticAssetResponse } from "./static";
 import { normalizeSlug } from "../names";
-import { landingHtml, type DeployShowcaseTarget } from "../static/landing";
-import {
-  htmlNoPreviewHeaders,
-  isSocialPreviewCrawler,
-  socialPreviewNoContentResponse
-} from "../noPreview";
-import { deployPlaceholderSeoResponse } from "../seo";
 import { dispatchWorker } from "./dispatch";
 import { enforceAppNotSuspended, suspendAppForLimits } from "../appLimits";
 import { checkBlockedUsageLimit, costGuardExceededMessage } from "../usageEnforcement";
@@ -96,46 +89,6 @@ const shouldRedirectStaticRepoRoot = (request: Request, repoPath: string) => {
   const url = new URL(request.url);
   return repoPath === "/" && !url.pathname.endsWith("/");
 };
-
-const shouldShowDeployShowcase = (request: Request) =>
-  (request.method === "GET" || request.method === "HEAD") &&
-  request.headers.get("sec-fetch-mode") === "navigate";
-
-const displayRequestUrl = (request: Request, host: string) => {
-  const url = new URL(request.url);
-  url.protocol = "https:";
-  url.host = host;
-  return url.toString();
-};
-
-const deployShowcaseTarget = (request: Request, host: string, orgSlug: string): DeployShowcaseTarget => {
-  const path = new URL(request.url).pathname;
-  const repoInfo = splitRepoPath(path);
-  const repoSlug = repoInfo?.repoSlug ?? orgSlug;
-  const deployUrl = `https://${host}${repoInfo ? `/${repoSlug}/` : "/"}`;
-  const repository = `${orgSlug}/${repoSlug}`;
-
-  return {
-    requestedUrl: displayRequestUrl(request, host),
-    deployUrl,
-    repository,
-    repositoryUrl: `https://github.com/${repository}`,
-    isOwnerRoot: !repoInfo
-  };
-};
-
-const deployShowcaseResponse = (request: Request, host: string, orgSlug: string) =>
-  isSocialPreviewCrawler(request)
-    ? socialPreviewNoContentResponse()
-    : new Response(
-        request.method === "HEAD"
-          ? null
-          : landingHtml(deployShowcaseTarget(request, host, orgSlug)),
-        {
-          status: 200,
-          headers: htmlNoPreviewHeaders()
-        }
-      );
 
 const redirectToDirectoryPath = (request: Request) => {
   const url = new URL(request.url);
@@ -470,28 +423,6 @@ export const resolveRuntimeRequest = async (
       });
     }
     return null;
-  }
-
-  if (host && shouldShowDeployShowcase(request)) {
-    const seoResponse = deployPlaceholderSeoResponse(request);
-    if (seoResponse) return seoResponse;
-
-    const target = deployShowcaseTarget(request, requestHost, orgSlug);
-    const response = deployShowcaseResponse(request, requestHost, orgSlug);
-    const repoSlug = target.repository.split("/")[1] ?? orgSlug;
-    writeAnalyticsEvent(env, {
-      event: "runtime_showcase",
-      repository: target.repository,
-      environment: environments[0] ?? "production",
-      orgSlug,
-      repoSlug,
-      outcome: "success",
-      source: target.isOwnerRoot ? "org_root" : "repo_prefix",
-      method: request.method,
-      status: response.status,
-      durationMs: Date.now() - startedAt
-    });
-    return response;
   }
 
   return platformDeploymentNotFoundResponse(request);

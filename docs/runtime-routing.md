@@ -82,31 +82,7 @@ https://guerrerocarlos.w7s.cloud/assets/app.js
 
 Repo-prefixed deployments keep priority. If `guerrerocarlos/w7s-io-demo` exists, then `/w7s-io-demo/*` routes to that repo before W7S tries the org-root app.
 
-If an org host has no deployment for the requested root or repo-prefixed path, W7S returns a branded `deployment_not_connected` 404. Browser navigations receive a W7S HTML page. Other requests receive JSON, so fetch clients, scripts, and APIs do not have to parse HTML.
-
-When the request is a browser navigation, W7S can still include contextual deploy help for default org routes. The page includes the exact GitHub repo that should be used for the URL. For example:
-
-```text
-https://sadasant.w7s.cloud/
-```
-
-points at:
-
-```text
-https://github.com/sadasant/sadasant
-```
-
-and:
-
-```text
-https://sadasant.w7s.cloud/example/
-```
-
-points at:
-
-```text
-https://github.com/sadasant/example
-```
+If an org host has no deployment for the requested root or repo-prefixed path, W7S returns a `deployment_not_connected` 404. Browser navigations receive a minimal HTML page with only the error code and message. Other requests receive JSON, so fetch clients, scripts, and APIs do not have to parse HTML.
 
 Custom domains are resolved from KV mappings created during deploy from `CNAME` or supported legacy/static-output CNAME paths. The `main` branch uses the declared hostname exactly. Non-`main` branches prefix the sanitized branch name to the first label, so branch `dev` with `app.example.com` routes through `dev--app.example.com`. DNS must resolve the exact production or branch-prefixed hostname. A custom hostname routes directly to its mapped deployment without a repo prefix:
 

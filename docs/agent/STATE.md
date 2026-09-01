@@ -18,7 +18,7 @@
 - W7S Core dispatches Cloudflare Email Routing events to the standalone `omattic/inbox-gateway` production deployment by default, with environment overrides available when needed.
 - The gateway returns a signed raw-envelope stream to W7S Core. Core resolves the tenant custom-domain path and dispatches the stream directly to the tenant Worker, avoiding a recursive public fetch during the Email Routing event.
 - Public runtime routing returns 404 for `/_w7s/*`; queue, schedule, workflow, and email delivery reach those routes only through direct platform dispatch.
-- Unresolved W7S runtime routes return a W7S-owned `deployment_not_connected` 404 instead of a generic Cloudflare or plain-text error. Browser navigations receive branded HTML, while non-navigation requests receive JSON.
+- Unresolved W7S runtime routes return a W7S-owned `deployment_not_connected` 404 instead of a generic Cloudflare or plain-text error. Browser navigations receive minimal HTML with only the error code and message, while non-navigation requests receive JSON.
 - Native Workers whose `wrangler.json` declares `no_bundle: true` upload their complete JavaScript module tree. This preserves framework modules reached only through runtime `import()`, including Nitro SSR services and lazy route chunks.
 
 - Keep custom-domain scanner noise from suspending customer apps when W7S returns cheap `not_found` 404 responses.
