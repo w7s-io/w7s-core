@@ -1,5 +1,9 @@
 # W7S Core Agent Decisions
 
+## 2026-09-04: Core Schedule Dispatch Runs Every Minute
+
+W7S Core's production Cloudflare Cron Trigger is explicitly configured as `* * * * *`. App-declared five-field UTC cron schedules are evaluated on that per-minute tick and delivered to their configured backend paths when due. Schedule duplicate suppression remains keyed by deployment mapping plus scheduled minute, so repeated platform invocations in the same minute do not dispatch the same app schedule twice.
+
 ## 2026-09-01: W7S Owns Unresolved Runtime Route Errors
 
 When a request reaches W7S but no deployment is attached to the resolved route, W7S returns a `deployment_not_connected` 404 from the platform Worker.

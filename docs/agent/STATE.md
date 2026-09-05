@@ -29,6 +29,7 @@
 - `CNAME` entries can include path prefixes, such as `omattic.com/compress-video`; W7S strips that prefix before serving the app.
 - Custom-domain path mappings are merged per hostname. A root hostname redeploy preserves sibling path routes from other repos, such as `www.omattic.com/compress-video`.
 - Custom-domain path mappings also persist as independent v2 KV records keyed by hostname and path prefix. Runtime resolution merges these records with the legacy aggregate, preventing concurrent sibling deployments from losing one another through KV read-modify-write races.
+- W7S Core's production Worker cron is explicitly configured as `* * * * *`. App-level `w7s.json` schedules are evaluated every minute, and schedule locks are keyed by mapping plus scheduled minute to suppress duplicate delivery for the same minute.
 - Front-door custom-domain authority is optional. Path routes work by default, and deploy responses warn when a path under a root hostname is not explicitly allowed by that root repo's `routing.customDomainAuthority`.
 - ISO readiness planning for hosted W7S lives in `docs/iso/`.
 - The first ISO asset and data inventory draft lives at `docs/iso/asset-and-data-inventory.md`.

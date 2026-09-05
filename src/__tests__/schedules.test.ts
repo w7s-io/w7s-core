@@ -242,4 +242,56 @@ describe("scheduled dispatch", () => {
       doubles: [1, 200, expect.any(Number)]
     });
   });
+
+  it("supports every-minute schedules without duplicating a scheduled minute", async () => {
+    const calls: Array<{ path: string; time: string; body: unknown }> = [];
+    const env = createTestEnv({
+      DISPATCHER: {
+        get: () => ({
+          fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
+            const request = input instanceof Request ? input : new Request(input, init);
+            calls.push({
+              path: new URL(request.url).pathname,
+              time: request.headers.get("x-w7s-schedule-time") ?? "",
+              body: await request.json()
+            });
+            return Response.json({ ok: true });
+          }
+        })
+      }
+    });
+    const record = {
+      ...workerRecord(),
+      schedules: [{ cron: "* * * * *", path: "/_w7s/schedules/every-minute" }]
+    };
+    await storeDeploymentRecord(env, record);
+    await storeScheduleMappings(env, record, record.schedules);
+
+    await dispatchDueSchedules(env, new Date("2026-05-25T12:10:05.000Z"));
+    await dispatchDueSchedules(env, new Date("2026-05-25T12:10:50.000Z"));
+    await dispatchDueSchedules(env, new Date("2026-05-25T12:11:00.000Z"));
+
+    expect(calls).toEqual([
+      {
+        path: "/_w7s/schedules/every-minute",
+        time: "2026-05-25T12:10:00.000Z",
+        body: {
+          schedule: "* * * * *",
+          scheduledTime: "2026-05-25T12:10:00.000Z",
+          repository: "w7s-io/scheduled-worker",
+          environment: "production"
+        }
+      },
+      {
+        path: "/_w7s/schedules/every-minute",
+        time: "2026-05-25T12:11:00.000Z",
+        body: {
+          schedule: "* * * * *",
+          scheduledTime: "2026-05-25T12:11:00.000Z",
+          repository: "w7s-io/scheduled-worker",
+          environment: "production"
+        }
+      }
+    ]);
+  });
 });
