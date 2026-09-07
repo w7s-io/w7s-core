@@ -37,6 +37,7 @@
 
 ## Known Incident Context
 
+- As of 2026-09-07, W7S Core includes and deploys the Cloudflare for SaaS custom-hostname fallback path. A Tripolaris retry reached that path and failed with `Unable to provision Cloudflare for SaaS custom hostname tripolarisbarcelona.com: Authentication error`, which means the live W7S Cloudflare token or zone entitlement still needs Custom Hostnames/SSL access before external-DNS custom domains can provision successfully.
 - `omattic/seokeywordexplorer-com` received a production suspension notification on 2026-07-11 because `runtime.request` hit the repo short-window policy at `300/300`.
 - Live Analytics Engine data showed the burst was custom-domain scanner traffic on `www.seokeywordexplorer.com`, mostly `curl/8.7.1`, probing secret/admin paths and receiving `not_found:custom-domain` 404s.
 - The deployed SEO Keyword Explorer commit already returned plain 404s for scanner paths; the remaining issue was W7S suspension enforcement counting cheap W7S-generated 404 bursts as suspendable app traffic.

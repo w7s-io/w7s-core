@@ -44,7 +44,7 @@ The token must be able to:
 - create/read Workers for Platforms dispatch namespaces;
 - publish scripts into the dispatch namespace.
 - deploy Cloudflare Workflows attached to the core Worker.
-- create and read Cloudflare for SaaS Custom Hostnames in the W7S SaaS zone, when external-DNS customer domains should be supported.
+- create and read Cloudflare for SaaS Custom Hostnames in the W7S SaaS zone, when external-DNS customer domains should be supported. In Cloudflare token terms, this requires the SaaS zone to be covered by the token and SSL/Custom Hostnames edit access to be enabled for that zone.
 
 DNS record permissions are not required by the current deploy workflow because wildcard DNS and app custom-domain DNS are manual.
 
