@@ -368,44 +368,51 @@ const provisionCloudflareForSaasHostname = async (params: {
   repository?: string;
   environment?: string;
 }) => {
-  const zoneId = await resolveSaasZoneId(params.env);
+  try {
+    const zoneId = await resolveSaasZoneId(params.env);
 
-  const existing = await listCustomHostname(params.env, params.route.hostname);
-  if (existing) {
-    return readCustomHostnameProvisioning(params.env, params.route, existing);
-  }
-
-  const customOriginServer = saasCustomOriginServer(params.env);
-  const created = await cfRequest(
-    params.env,
-    "POST",
-    `/zones/${encodeURIComponent(zoneId)}/custom_hostnames`,
-    {
-      hostname: params.route.hostname,
-      ssl: {
-        method: "txt",
-        type: "dv"
-      },
-      ...(customOriginServer ? { custom_origin_server: customOriginServer } : {}),
-      custom_metadata: {
-        w7s_repository: params.repository ?? repoTxtValue(params.orgSlug, params.repoSlug),
-        w7s_environment: params.environment ?? "production",
-        w7s_path_prefix: params.route.pathPrefix
-      }
+    const existing = await listCustomHostname(params.env, params.route.hostname);
+    if (existing) {
+      return readCustomHostnameProvisioning(params.env, params.route, existing);
     }
-  );
-  const createdRecord = asRecord(created);
-  const customHostnameId = stringValue(createdRecord?.id);
-  if (!customHostnameId) {
-    return readCustomHostnameProvisioning(params.env, params.route, created);
-  }
 
-  const refreshed = await cfRequest(
-    params.env,
-    "GET",
-    `/zones/${encodeURIComponent(zoneId)}/custom_hostnames/${encodeURIComponent(customHostnameId)}`
-  );
-  return readCustomHostnameProvisioning(params.env, params.route, refreshed ?? created);
+    const customOriginServer = saasCustomOriginServer(params.env);
+    const created = await cfRequest(
+      params.env,
+      "POST",
+      `/zones/${encodeURIComponent(zoneId)}/custom_hostnames`,
+      {
+        hostname: params.route.hostname,
+        ssl: {
+          method: "txt",
+          type: "dv"
+        },
+        ...(customOriginServer ? { custom_origin_server: customOriginServer } : {}),
+        custom_metadata: {
+          w7s_repository: params.repository ?? repoTxtValue(params.orgSlug, params.repoSlug),
+          w7s_environment: params.environment ?? "production",
+          w7s_path_prefix: params.route.pathPrefix
+        }
+      }
+    );
+    const createdRecord = asRecord(created);
+    const customHostnameId = stringValue(createdRecord?.id);
+    if (!customHostnameId) {
+      return readCustomHostnameProvisioning(params.env, params.route, created);
+    }
+
+    const refreshed = await cfRequest(
+      params.env,
+      "GET",
+      `/zones/${encodeURIComponent(zoneId)}/custom_hostnames/${encodeURIComponent(customHostnameId)}`
+    );
+    return readCustomHostnameProvisioning(params.env, params.route, refreshed ?? created);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Unable to provision Cloudflare for SaaS custom hostname ${params.route.hostname}: ${message}`
+    );
+  }
 };
 
 const hasFrontDoorPathAuthorization = (
