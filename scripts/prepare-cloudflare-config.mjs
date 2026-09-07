@@ -54,7 +54,7 @@ const telegramBotToken = process.env.W7S_TELEGRAM_BOT_TOKEN?.trim() || "";
 const adminTelegramChatId = process.env.W7S_ADMIN_TELEGRAM_CHAT_ID?.trim() || "";
 const telegramChatId = process.env.W7S_TELEGRAM_CHAT_ID?.trim() || "";
 const telegramWebhookSecret = process.env.W7S_TELEGRAM_WEBHOOK_SECRET?.trim() || "";
-const cloudflareSaasZoneId = process.env.CLOUDFLARE_SAAS_ZONE_ID?.trim() || "";
+const explicitCloudflareSaasZoneId = process.env.CLOUDFLARE_SAAS_ZONE_ID?.trim() || "";
 const cloudflareSaasCnameTarget = process.env.CLOUDFLARE_SAAS_CNAME_TARGET?.trim() || "";
 const cloudflareSaasCustomOriginServer = process.env.CLOUDFLARE_SAAS_CUSTOM_ORIGIN_SERVER?.trim() || "";
 
@@ -161,6 +161,7 @@ const [kvNamespaceId, zoneId] = await Promise.all([
   ensureR2Bucket(staticBucketName),
   ensureDispatchNamespace(dispatchNamespace)
 ]);
+const cloudflareSaasZoneId = explicitCloudflareSaasZoneId || zoneId;
 
 const config = {
   $schema: "node_modules/wrangler/config-schema.json",

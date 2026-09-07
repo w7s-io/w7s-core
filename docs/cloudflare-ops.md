@@ -72,7 +72,7 @@ W7S_ATTACH_WILDCARD_ROUTE       default: false
 W7S_COMPATIBILITY_DATE          default: 2026-05-23
 W7S_TELEGRAM_EVENTS             optional comma-separated notification event allowlist
 W7S_ADMIN_TELEGRAM_CHAT_ID       optional admin chat override, default: 63272048
-CLOUDFLARE_SAAS_ZONE_ID          optional Cloudflare for SaaS provider zone id
+CLOUDFLARE_SAAS_ZONE_ID          optional Cloudflare for SaaS provider zone id, defaults to the W7S base zone
 CLOUDFLARE_SAAS_CNAME_TARGET     optional customer DNS target, for example customers.w7s.cloud
 CLOUDFLARE_SAAS_CUSTOM_ORIGIN_SERVER optional per-host custom origin server override
 ```

@@ -308,13 +308,21 @@ const recordsValue = (value: unknown) =>
     ? value.filter((entry): entry is Record<string, unknown> => Boolean(asRecord(entry)))
     : undefined;
 
-const saasZoneId = (env: Env) => env.CLOUDFLARE_SAAS_ZONE_ID?.trim();
+const explicitSaasZoneId = (env: Env) => env.CLOUDFLARE_SAAS_ZONE_ID?.trim();
 
 const saasCnameTarget = (env: Env) => env.CLOUDFLARE_SAAS_CNAME_TARGET?.trim();
 
 const saasCustomOriginServer = (env: Env) => env.CLOUDFLARE_SAAS_CUSTOM_ORIGIN_SERVER?.trim();
 
-const cloudflareForSaasEnabled = (env: Env) => Boolean(saasZoneId(env));
+const resolveSaasZoneId = async (env: Env) => {
+  const explicit = explicitSaasZoneId(env);
+  if (explicit) return explicit;
+  const baseDomain = env.W7S_BASE_DOMAIN?.trim() || "w7s.cloud";
+  return (await findZoneForHostname(env, baseDomain)).id;
+};
+
+const cloudflareForSaasEnabled = (env: Env) =>
+  Boolean(explicitSaasZoneId(env) || env.W7S_BASE_DOMAIN?.trim() || "w7s.cloud");
 
 const readCustomHostnameProvisioning = (
   env: Env,
@@ -342,8 +350,7 @@ const readCustomHostnameProvisioning = (
 };
 
 const listCustomHostname = async (env: Env, hostname: string) => {
-  const zoneId = saasZoneId(env);
-  if (!zoneId) return null;
+  const zoneId = await resolveSaasZoneId(env);
   const result = await cfRequest(
     env,
     "GET",
@@ -361,10 +368,7 @@ const provisionCloudflareForSaasHostname = async (params: {
   repository?: string;
   environment?: string;
 }) => {
-  const zoneId = saasZoneId(params.env);
-  if (!zoneId) {
-    throw new Error(`CLOUDFLARE_SAAS_ZONE_ID is required to provision ${params.route.hostname}.`);
-  }
+  const zoneId = await resolveSaasZoneId(params.env);
 
   const existing = await listCustomHostname(params.env, params.route.hostname);
   if (existing) {

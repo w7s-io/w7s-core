@@ -16,7 +16,7 @@ CLOUDFLARE_SAAS_CNAME_TARGET
 CLOUDFLARE_SAAS_CUSTOM_ORIGIN_SERVER
 ```
 
-`CLOUDFLARE_SAAS_ZONE_ID` enables fallback Custom Hostname provisioning when W7S cannot find a customer-domain Cloudflare zone. The CNAME target is shown in deploy warnings so customers know where to point DNS.
+`CLOUDFLARE_SAAS_ZONE_ID` enables fallback Custom Hostname provisioning when W7S cannot find a customer-domain Cloudflare zone. If it is omitted, the generated production config uses the W7S base zone id. The CNAME target is shown in deploy warnings so customers know where to point DNS.
 
 After deployment, verify an external-DNS custom domain by checking the deploy response for `customDomainProvisioning`, then confirm the customer hostname appears under the Cloudflare for SaaS Custom Hostnames page for the W7S SaaS zone.
 
