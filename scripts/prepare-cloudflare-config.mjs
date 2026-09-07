@@ -54,6 +54,9 @@ const telegramBotToken = process.env.W7S_TELEGRAM_BOT_TOKEN?.trim() || "";
 const adminTelegramChatId = process.env.W7S_ADMIN_TELEGRAM_CHAT_ID?.trim() || "";
 const telegramChatId = process.env.W7S_TELEGRAM_CHAT_ID?.trim() || "";
 const telegramWebhookSecret = process.env.W7S_TELEGRAM_WEBHOOK_SECRET?.trim() || "";
+const cloudflareSaasZoneId = process.env.CLOUDFLARE_SAAS_ZONE_ID?.trim() || "";
+const cloudflareSaasCnameTarget = process.env.CLOUDFLARE_SAAS_CNAME_TARGET?.trim() || "";
+const cloudflareSaasCustomOriginServer = process.env.CLOUDFLARE_SAAS_CUSTOM_ORIGIN_SERVER?.trim() || "";
 
 if (!apiToken) {
   throw new Error("CLOUDFLARE_API_TOKEN is required.");
@@ -210,7 +213,12 @@ const config = {
     ...(statusComponentsJson ? { W7S_STATUS_COMPONENTS_JSON: statusComponentsJson } : {}),
     ...(statusRegionsJson ? { W7S_STATUS_REGIONS_JSON: statusRegionsJson } : {}),
     ...(statusIncidentsJson ? { W7S_STATUS_INCIDENTS_JSON: statusIncidentsJson } : {}),
-    ...(telegramEvents ? { W7S_TELEGRAM_EVENTS: telegramEvents } : {})
+    ...(telegramEvents ? { W7S_TELEGRAM_EVENTS: telegramEvents } : {}),
+    ...(cloudflareSaasZoneId ? { CLOUDFLARE_SAAS_ZONE_ID: cloudflareSaasZoneId } : {}),
+    ...(cloudflareSaasCnameTarget ? { CLOUDFLARE_SAAS_CNAME_TARGET: cloudflareSaasCnameTarget } : {}),
+    ...(cloudflareSaasCustomOriginServer
+      ? { CLOUDFLARE_SAAS_CUSTOM_ORIGIN_SERVER: cloudflareSaasCustomOriginServer }
+      : {})
   },
   dispatch_namespaces: [
     {
@@ -301,6 +309,9 @@ console.log(
       staticRetentionDays,
       usageRetentionDays,
       workerScriptRetentionDays,
+      cloudflareSaasZoneId: cloudflareSaasZoneId ? "[set]" : null,
+      cloudflareSaasCnameTarget: cloudflareSaasCnameTarget || null,
+      cloudflareSaasCustomOriginServer: cloudflareSaasCustomOriginServer || null,
       scheduleCron,
       attachWildcardRoute,
       routeManagement: "post-deploy"

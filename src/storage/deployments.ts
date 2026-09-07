@@ -32,6 +32,7 @@ export type DeploymentRecord = {
   commitSha: string;
   deployedAt: string;
   customDomains?: string[];
+  customDomainProvisioning?: CustomDomainProvisioningRecord[];
   routing?: {
     defaultDomain: boolean;
     customDomainBranchMode?: "prefixed" | "direct";
@@ -66,6 +67,19 @@ export type DeploymentRecord = {
       hasIndex: boolean;
     };
   };
+};
+
+export type CustomDomainProvisioningRecord = {
+  provider: "cloudflare_for_saas";
+  hostname: string;
+  pathPrefix?: string;
+  id?: string;
+  status?: string;
+  sslStatus?: string;
+  dnsTarget?: string;
+  ownershipVerification?: Record<string, unknown>;
+  ownershipVerificationHttp?: Record<string, unknown>;
+  validationRecords?: Record<string, unknown>[];
 };
 
 export type DeploymentRpc = {

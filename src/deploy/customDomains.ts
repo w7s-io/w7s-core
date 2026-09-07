@@ -30,6 +30,14 @@ export type CustomDomainWarning = {
   domain: string;
   txtName: string;
   txtValue: string;
+  provider?: "worker_route" | "cloudflare_for_saas";
+  customHostnameId?: string;
+  status?: string;
+  sslStatus?: string;
+  dnsTarget?: string;
+  ownershipVerification?: Record<string, unknown>;
+  ownershipVerificationHttp?: Record<string, unknown>;
+  validationRecords?: Record<string, unknown>[];
   currentRepository?: string;
   frontDoorRepository?: string;
   message: string;
@@ -47,14 +55,33 @@ export type BlockedCustomDomain = {
 };
 
 export type CustomDomainPlan = {
-  attached: CustomDomainRoute[];
+  attached: AttachedCustomDomainRoute[];
   warnings: CustomDomainWarning[];
   blocked: BlockedCustomDomain[];
+  provisioning: CustomDomainProvisioning[];
 };
 
 export type CustomDomainRoute = {
   hostname: string;
   pathPrefix: string;
+};
+
+export type AttachedCustomDomainRoute = CustomDomainRoute & {
+  provider: "worker_route" | "cloudflare_for_saas";
+  provisioning?: CustomDomainProvisioning;
+};
+
+export type CustomDomainProvisioning = {
+  provider: "cloudflare_for_saas";
+  hostname: string;
+  pathPrefix?: string;
+  id?: string;
+  status?: string;
+  sslStatus?: string;
+  dnsTarget?: string;
+  ownershipVerification?: Record<string, unknown>;
+  ownershipVerificationHttp?: Record<string, unknown>;
+  validationRecords?: Record<string, unknown>[];
 };
 
 export const customDomainRouteDisplay = (route: CustomDomainRoute) =>
@@ -194,6 +221,16 @@ const findZoneForHostname = async (env: Env, hostname: string) => {
   return { id: zone.id, name: zone.name };
 };
 
+const lookupZoneForHostname = async (env: Env, hostname: string) => {
+  const result = await cfRequest(env, "GET", "/zones?per_page=100");
+  const zones = Array.isArray(result) ? (result as Zone[]) : [];
+  const matches = zones
+    .filter((zone) => zone.id && zone.name && (hostname === zone.name || hostname.endsWith(`.${zone.name}`)))
+    .sort((a, b) => (b.name?.length ?? 0) - (a.name?.length ?? 0));
+  const zone = matches[0];
+  return zone?.id && zone.name ? { id: zone.id, name: zone.name } : null;
+};
+
 const routeScriptName = (route: WorkerRoute) =>
   route.script || route.script_name || route.scriptName || null;
 
@@ -258,6 +295,114 @@ const isAuthorizedByAllowlist = (params: {
 const pathPrefixMatches = (allowedPrefix: string, requestedPrefix: string) =>
   allowedPrefix === requestedPrefix ||
   (allowedPrefix !== "/" && requestedPrefix.startsWith(`${allowedPrefix}/`));
+
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+
+const stringValue = (value: unknown) => typeof value === "string" ? value : undefined;
+
+const recordsValue = (value: unknown) =>
+  Array.isArray(value)
+    ? value.filter((entry): entry is Record<string, unknown> => Boolean(asRecord(entry)))
+    : undefined;
+
+const saasZoneId = (env: Env) => env.CLOUDFLARE_SAAS_ZONE_ID?.trim();
+
+const saasCnameTarget = (env: Env) => env.CLOUDFLARE_SAAS_CNAME_TARGET?.trim();
+
+const saasCustomOriginServer = (env: Env) => env.CLOUDFLARE_SAAS_CUSTOM_ORIGIN_SERVER?.trim();
+
+const cloudflareForSaasEnabled = (env: Env) => Boolean(saasZoneId(env));
+
+const readCustomHostnameProvisioning = (
+  env: Env,
+  route: CustomDomainRoute,
+  value: unknown
+): CustomDomainProvisioning => {
+  const record = asRecord(value) ?? {};
+  const ssl = asRecord(record.ssl);
+  return {
+    provider: "cloudflare_for_saas",
+    hostname: route.hostname,
+    ...(route.pathPrefix !== "/" ? { pathPrefix: route.pathPrefix } : {}),
+    ...(stringValue(record.id) ? { id: stringValue(record.id) } : {}),
+    ...(stringValue(record.status) ? { status: stringValue(record.status) } : {}),
+    ...(stringValue(ssl?.status) ? { sslStatus: stringValue(ssl?.status) } : {}),
+    ...(saasCnameTarget(env) ? { dnsTarget: saasCnameTarget(env) } : {}),
+    ...(asRecord(record.ownership_verification)
+      ? { ownershipVerification: asRecord(record.ownership_verification)! }
+      : {}),
+    ...(asRecord(record.ownership_verification_http)
+      ? { ownershipVerificationHttp: asRecord(record.ownership_verification_http)! }
+      : {}),
+    ...(recordsValue(ssl?.validation_records) ? { validationRecords: recordsValue(ssl?.validation_records) } : {})
+  };
+};
+
+const listCustomHostname = async (env: Env, hostname: string) => {
+  const zoneId = saasZoneId(env);
+  if (!zoneId) return null;
+  const result = await cfRequest(
+    env,
+    "GET",
+    `/zones/${encodeURIComponent(zoneId)}/custom_hostnames?hostname=${encodeURIComponent(hostname)}&per_page=50`
+  );
+  const hostnames = Array.isArray(result) ? result : [];
+  return hostnames.find((entry) => asRecord(entry)?.hostname === hostname) ?? null;
+};
+
+const provisionCloudflareForSaasHostname = async (params: {
+  env: Env;
+  route: CustomDomainRoute;
+  orgSlug: string;
+  repoSlug: string;
+  repository?: string;
+  environment?: string;
+}) => {
+  const zoneId = saasZoneId(params.env);
+  if (!zoneId) {
+    throw new Error(`CLOUDFLARE_SAAS_ZONE_ID is required to provision ${params.route.hostname}.`);
+  }
+
+  const existing = await listCustomHostname(params.env, params.route.hostname);
+  if (existing) {
+    return readCustomHostnameProvisioning(params.env, params.route, existing);
+  }
+
+  const customOriginServer = saasCustomOriginServer(params.env);
+  const created = await cfRequest(
+    params.env,
+    "POST",
+    `/zones/${encodeURIComponent(zoneId)}/custom_hostnames`,
+    {
+      hostname: params.route.hostname,
+      ssl: {
+        method: "txt",
+        type: "dv"
+      },
+      ...(customOriginServer ? { custom_origin_server: customOriginServer } : {}),
+      custom_metadata: {
+        w7s_repository: params.repository ?? repoTxtValue(params.orgSlug, params.repoSlug),
+        w7s_environment: params.environment ?? "production",
+        w7s_path_prefix: params.route.pathPrefix
+      }
+    }
+  );
+  const createdRecord = asRecord(created);
+  const customHostnameId = stringValue(createdRecord?.id);
+  if (!customHostnameId) {
+    return readCustomHostnameProvisioning(params.env, params.route, created);
+  }
+
+  const refreshed = await cfRequest(
+    params.env,
+    "GET",
+    `/zones/${encodeURIComponent(zoneId)}/custom_hostnames/${encodeURIComponent(customHostnameId)}`
+  );
+  return readCustomHostnameProvisioning(params.env, params.route, refreshed ?? created);
+};
 
 const hasFrontDoorPathAuthorization = (
   record: DeploymentRecord | null,
@@ -326,18 +471,61 @@ export const planCustomDomainClaims = async (params: {
   routes: CustomDomainRoute[];
   orgSlug: string;
   repoSlug: string;
+  repository?: string;
+  environment?: string;
 }) => {
   const plan: CustomDomainPlan = {
     attached: [],
     warnings: [],
-    blocked: []
+    blocked: [],
+    provisioning: []
   };
   const orgSlug = normalizeSlug(params.orgSlug);
   const repoSlug = normalizeSlug(params.repoSlug);
 
   for (const route of params.routes) {
     const { hostname, pathPrefix } = route;
-    const zone = await findZoneForHostname(params.env, hostname);
+    const zone = await lookupZoneForHostname(params.env, hostname);
+    if (!zone) {
+      if (!cloudflareForSaasEnabled(params.env)) {
+        throw new Error(`Unable to find a Cloudflare zone for custom domain ${hostname}.`);
+      }
+      const provisioning = await provisionCloudflareForSaasHostname({
+        env: params.env,
+        route,
+        orgSlug,
+        repoSlug,
+        repository: params.repository,
+        environment: params.environment
+      });
+      plan.attached.push({
+        ...route,
+        provider: "cloudflare_for_saas",
+        provisioning
+      });
+      plan.provisioning.push(provisioning);
+      plan.warnings.push({
+        hostname,
+        ...(pathPrefix !== "/" ? { pathPrefix } : {}),
+        domain: hostname,
+        txtName: hostname,
+        txtValue: saasCnameTarget(params.env) ?? "configured Cloudflare for SaaS CNAME target",
+        provider: "cloudflare_for_saas",
+        ...(provisioning.id ? { customHostnameId: provisioning.id } : {}),
+        ...(provisioning.status ? { status: provisioning.status } : {}),
+        ...(provisioning.sslStatus ? { sslStatus: provisioning.sslStatus } : {}),
+        ...(provisioning.dnsTarget ? { dnsTarget: provisioning.dnsTarget } : {}),
+        ...(provisioning.ownershipVerification
+          ? { ownershipVerification: provisioning.ownershipVerification }
+          : {}),
+        ...(provisioning.ownershipVerificationHttp
+          ? { ownershipVerificationHttp: provisioning.ownershipVerificationHttp }
+          : {}),
+        ...(provisioning.validationRecords ? { validationRecords: provisioning.validationRecords } : {}),
+        message: `Cloudflare for SaaS custom hostname ${hostname} is provisioned. Point DNS to ${saasCnameTarget(params.env) ?? "the configured W7S SaaS CNAME target"} and complete Cloudflare certificate validation if it is still pending.`
+      });
+      continue;
+    }
     const txtName = verificationTxtName(zone.name);
     const txtValue = repoTxtValue(orgSlug, repoSlug);
     const existing = await loadCustomDomainRouteMapping(params.env, hostname, pathPrefix);
@@ -356,7 +544,7 @@ export const planCustomDomainClaims = async (params: {
 
     if (txt.hasTxt) {
       if (isAuthorizedByAllowlist({ allowlist: txt.allowlist, orgSlug, repoSlug })) {
-        plan.attached.push(route);
+        plan.attached.push({ ...route, provider: "worker_route" });
         if (frontDoorWarning) plan.warnings.push(frontDoorWarning);
         continue;
       }
@@ -373,7 +561,7 @@ export const planCustomDomainClaims = async (params: {
       continue;
     }
 
-    plan.attached.push(route);
+    plan.attached.push({ ...route, provider: "worker_route" });
     if (frontDoorWarning) plan.warnings.push(frontDoorWarning);
     plan.warnings.push({
       hostname,

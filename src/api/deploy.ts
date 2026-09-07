@@ -297,10 +297,11 @@ export const handleDeploy = async (c: HonoContext) => {
 
   const deployedAt = new Date().toISOString();
   const targets: DeploymentRecord["targets"] = {};
-  let attachedCustomDomainRoutes: ReturnType<typeof readCustomDomains> = [];
+  let attachedCustomDomainRoutes: Awaited<ReturnType<typeof planCustomDomainClaims>>["attached"] = [];
   let attachedCustomDomains: string[] = [];
   let customDomainWarnings: Awaited<ReturnType<typeof planCustomDomainClaims>>["warnings"] = [];
   let blockedCustomDomains: Awaited<ReturnType<typeof planCustomDomainClaims>>["blocked"] = [];
+  let customDomainProvisioning: Awaited<ReturnType<typeof planCustomDomainClaims>>["provisioning"] = [];
   let deploymentBindings: DeploymentRecord["bindings"];
   let deploymentAi: DeploymentRecord["ai"];
   let deploymentRpc: DeploymentRecord["rpc"];
@@ -438,12 +439,15 @@ export const handleDeploy = async (c: HonoContext) => {
         env: c.env,
         routes: customDomains,
         orgSlug,
-        repoSlug
+        repoSlug,
+        repository: repo.fullName,
+        environment
       });
       attachedCustomDomainRoutes = customDomainPlan.attached;
       attachedCustomDomains = attachedCustomDomainRoutes.map(customDomainRouteDisplay);
       customDomainWarnings = customDomainPlan.warnings;
       blockedCustomDomains = customDomainPlan.blocked;
+      customDomainProvisioning = customDomainPlan.provisioning;
     }
   } catch (error) {
     await refundBillingReservation(c.env, billingReservation as BillingReservation | null);
@@ -469,6 +473,7 @@ export const handleDeploy = async (c: HonoContext) => {
     commitSha,
     deployedAt,
     ...(attachedCustomDomains.length > 0 ? { customDomains: attachedCustomDomains } : {}),
+    ...(customDomainProvisioning.length > 0 ? { customDomainProvisioning } : {}),
     ...(!defaultDomainEnabled || appManifest.routing.customDomainAuthority
       ? { routing: appManifest.routing }
       : {}),
@@ -492,7 +497,12 @@ export const handleDeploy = async (c: HonoContext) => {
   await replaceScheduleMappings(c.env, record, record.schedules ?? []);
   if (attachedCustomDomains.length > 0) {
     try {
-      await attachCustomDomainRoutes(c.env, attachedCustomDomainRoutes);
+      const workerRouteCustomDomains = attachedCustomDomainRoutes.filter(
+        (route) => route.provider === "worker_route"
+      );
+      if (workerRouteCustomDomains.length > 0) {
+        await attachCustomDomainRoutes(c.env, workerRouteCustomDomains);
+      }
     } catch (error) {
       await refundBillingReservation(c.env, billingReservation as BillingReservation | null);
       return jsonError(error instanceof Error ? error.message : String(error), 500);
@@ -569,6 +579,7 @@ export const handleDeploy = async (c: HonoContext) => {
     ),
     ...(deploymentWarnings.length > 0 ? { deploymentWarnings } : {}),
     ...(attachedCustomDomains.length > 0 ? { customDomains: attachedCustomDomains } : {}),
+    ...(customDomainProvisioning.length > 0 ? { customDomainProvisioning } : {}),
     ...(customDomainWarnings.length > 0 ? { customDomainWarnings } : {}),
     ...(blockedCustomDomains.length > 0 ? { blockedCustomDomains } : {})
   });

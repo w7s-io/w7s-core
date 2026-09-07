@@ -1,5 +1,11 @@
 # W7S Core Agent Decisions
 
+## 2026-09-07: External-DNS Custom Domains Use Cloudflare for SaaS
+
+W7S supports a second custom-domain provider for domains whose Cloudflare zones are not visible to the W7S API token. The existing Worker Route path remains the default whenever W7S can find the customer's Cloudflare zone. If no matching zone is visible and `CLOUDFLARE_SAAS_ZONE_ID` is configured, W7S provisions a Cloudflare for SaaS Custom Hostname in the provider zone and stores the normal W7S runtime mapping.
+
+The SaaS path does not require W7S `_w7s` TXT allowlists yet. Cloudflare certificate validation still applies through the Custom Hostname validation records returned by Cloudflare. Ownership enforcement can be tightened later without changing the basic provider abstraction.
+
 ## 2026-09-04: Core Schedule Dispatch Runs Every Minute
 
 W7S Core's production Cloudflare Cron Trigger is explicitly configured as `* * * * *`. App-declared five-field UTC cron schedules are evaluated on that per-minute tick and delivered to their configured backend paths when due. Schedule duplicate suppression remains keyed by deployment mapping plus scheduled minute, so repeated platform invocations in the same minute do not dispatch the same app schedule twice.

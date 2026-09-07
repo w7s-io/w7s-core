@@ -6,6 +6,20 @@
 npm run check
 ```
 
+## Cloudflare for SaaS Custom Domains
+
+Configure these GitHub variables for the hosted W7S deploy when customer domains should remain on external DNS providers:
+
+```text
+CLOUDFLARE_SAAS_ZONE_ID
+CLOUDFLARE_SAAS_CNAME_TARGET
+CLOUDFLARE_SAAS_CUSTOM_ORIGIN_SERVER
+```
+
+`CLOUDFLARE_SAAS_ZONE_ID` enables fallback Custom Hostname provisioning when W7S cannot find a customer-domain Cloudflare zone. The CNAME target is shown in deploy warnings so customers know where to point DNS.
+
+After deployment, verify an external-DNS custom domain by checking the deploy response for `customDomainProvisioning`, then confirm the customer hostname appears under the Cloudflare for SaaS Custom Hostnames page for the W7S SaaS zone.
+
 ## Monorepo Application Verification
 
 Give every independently deployed folder a unique `w7s.json` name. Deploy through the reusable action with that folder as `working-directory`, then confirm the response includes `application` and `sourceRepoSlug` and that sibling applications have different deployment keys and Worker or static targets.

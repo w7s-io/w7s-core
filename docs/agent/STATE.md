@@ -31,6 +31,7 @@
 - Custom-domain path mappings also persist as independent v2 KV records keyed by hostname and path prefix. Runtime resolution merges these records with the legacy aggregate, preventing concurrent sibling deployments from losing one another through KV read-modify-write races.
 - W7S Core's production Worker cron is explicitly configured as `* * * * *`. App-level `w7s.json` schedules are evaluated every minute, and schedule locks are keyed by mapping plus scheduled minute to suppress duplicate delivery for the same minute.
 - Front-door custom-domain authority is optional. Path routes work by default, and deploy responses warn when a path under a root hostname is not explicitly allowed by that root repo's `routing.customDomainAuthority`.
+- Custom domains can attach through Cloudflare Worker Routes when the customer zone is visible to the W7S API token, or through Cloudflare for SaaS Custom Hostnames when `CLOUDFLARE_SAAS_ZONE_ID` is configured and the customer DNS remains external. The SaaS path provisions Custom Hostnames without requiring W7S `_w7s` TXT allowlists yet.
 - ISO readiness planning for hosted W7S lives in `docs/iso/`.
 - The first ISO asset and data inventory draft lives at `docs/iso/asset-and-data-inventory.md`.
 

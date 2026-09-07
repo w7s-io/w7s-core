@@ -44,6 +44,7 @@ The token must be able to:
 - create/read Workers for Platforms dispatch namespaces;
 - publish scripts into the dispatch namespace.
 - deploy Cloudflare Workflows attached to the core Worker.
+- create and read Cloudflare for SaaS Custom Hostnames in the W7S SaaS zone, when external-DNS customer domains should be supported.
 
 DNS record permissions are not required by the current deploy workflow because wildcard DNS and app custom-domain DNS are manual.
 
@@ -71,6 +72,9 @@ W7S_ATTACH_WILDCARD_ROUTE       default: false
 W7S_COMPATIBILITY_DATE          default: 2026-05-23
 W7S_TELEGRAM_EVENTS             optional comma-separated notification event allowlist
 W7S_ADMIN_TELEGRAM_CHAT_ID       optional admin chat override, default: 63272048
+CLOUDFLARE_SAAS_ZONE_ID          optional Cloudflare for SaaS provider zone id
+CLOUDFLARE_SAAS_CNAME_TARGET     optional customer DNS target, for example customers.w7s.cloud
+CLOUDFLARE_SAAS_CUSTOM_ORIGIN_SERVER optional per-host custom origin server override
 ```
 
 Current cutover state uses:
@@ -186,6 +190,8 @@ During deploy, W7S:
 5. attaches a Worker route for `<hostname>/*` to the `w7s-io` Worker when the claim is allowed;
 6. stores `custom_domain:v1:<hostname>` in KV.
 
+If no matching Cloudflare zone is visible and `CLOUDFLARE_SAAS_ZONE_ID` is set, W7S provisions a Cloudflare for SaaS Custom Hostname in that SaaS zone instead of failing the deploy. The deploy response includes `customDomainProvisioning` with the Custom Hostname id, hostname status, SSL status, DNS target, and Cloudflare validation records when available.
+
 A repo can claim a hostname without a TXT record, and the latest deployment replaces previous unverified claims. The deploy response includes a warning recommending a TXT allowlist:
 
 ```text
@@ -212,6 +218,17 @@ Target: w7s.cloud
 Proxy status: Proxied
 TTL: Auto
 ```
+
+For Cloudflare for SaaS custom hostnames, point DNS to the configured SaaS target instead:
+
+```text
+Type: CNAME
+Name: www
+Target: customers.w7s.cloud
+TTL: Auto
+```
+
+Apex domains need either provider-supported CNAME flattening, ALIAS/ANAME records, or Cloudflare for SaaS apex proxying. W7S can provision the Custom Hostname, but the customer DNS provider still has to support a compatible apex target.
 
 ## Resource Names
 

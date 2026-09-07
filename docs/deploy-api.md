@@ -349,11 +349,15 @@ omattic.com/compress-video
 
 W7S reads root `CNAME` first, then static-output and legacy `frontend` CNAME paths. The `main` branch uses the declared hostname exactly. Non-`main` branches prefix the sanitized branch name to the first label; for example, branch `dev` with `app.example.com/docs` attaches `dev--app.example.com/docs`.
 
-W7S stores route mappings in KV and attaches Cloudflare Worker routes when the domain's Cloudflare zone is available to the W7S API token. Host-only entries attach `<hostname>/*`; path entries attach `<hostname>/<path>*`. Requests under a path entry are routed to the app with the path prefix stripped, so `omattic.com/compress-video/assets/app.js` is served from the app as `/assets/app.js`.
+W7S stores route mappings in KV and attaches custom domains with one of two providers. When the domain's Cloudflare zone is available to the W7S API token, W7S attaches Cloudflare Worker routes. Host-only entries attach `<hostname>/*`; path entries attach `<hostname>/<path>*`. When the customer domain is not in a Cloudflare zone visible to W7S and Cloudflare for SaaS is configured, W7S provisions a Custom Hostname in the W7S SaaS zone instead.
+
+Requests under a path entry are routed to the app with the path prefix stripped, so `omattic.com/compress-video/assets/app.js` is served from the app as `/assets/app.js`.
 
 Path mappings are merged per hostname. A redeploy of the root hostname app keeps sibling path routes from other repos, so a root `www.omattic.com` deploy does not remove `www.omattic.com/compress-video`.
 
 The actual DNS record still has to resolve to Cloudflare. For a typical proxied Cloudflare zone, create a `CNAME` record for each host, including branch-prefixed hosts you want to use, that points at `w7s.cloud`.
+
+For Cloudflare for SaaS custom hostnames, point customer DNS at the configured SaaS CNAME target, such as `customers.w7s.cloud`, and complete the Cloudflare certificate validation records returned in `customDomainProvisioning` or `customDomainWarnings`.
 
 Custom-domain ownership is intentionally low-friction:
 
@@ -363,6 +367,8 @@ Custom-domain ownership is intentionally low-friction:
 - W7S returns a front-door warning when that root hostname repo has not explicitly allowed the path route;
 - if `_w7s.<zone>` exists, only GitHub owners or repos listed in that TXT record can use hostnames on that zone;
 - if no TXT allowlist exists, the latest deployment wins and replaces any previous unverified hostname claim.
+
+Cloudflare for SaaS provisioning does not require the W7S `_w7s.<zone>` TXT allowlist yet. That allowlist remains advisory until W7S makes custom-domain ownership requirements stricter.
 
 Example TXT record for `whereis.carlosguerrero.com`:
 

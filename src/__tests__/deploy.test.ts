@@ -508,6 +508,123 @@ describe("deploy API", () => {
     expect(mapping?.repoSlug).toBe("whereis");
   });
 
+  it("provisions Cloudflare for SaaS custom hostnames when the customer zone is external", async () => {
+    const createdHostnames: Array<Record<string, unknown>> = [];
+    const workerRouteRequests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.startsWith("https://api.github.com/repos/")) {
+          return Response.json({ full_name: "omattic/tripolarisbarcelona" });
+        }
+        if (url === "https://api.cloudflare.com/client/v4/zones?per_page=100") {
+          return Response.json({
+            success: true,
+            result: [{ id: "saas-zone", name: "w7s.cloud" }]
+          });
+        }
+        if (url.includes("/custom_hostnames?hostname=www.tripolarisbarcelona.com")) {
+          return Response.json({ success: true, result: [] });
+        }
+        if (url.endsWith("/custom_hostnames") && init?.method === "POST") {
+          const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+          createdHostnames.push(body);
+          return Response.json({
+            success: true,
+            result: {
+              id: "custom-hostname-1",
+              hostname: "www.tripolarisbarcelona.com",
+              status: "pending",
+              ssl: {
+                status: "pending_validation",
+                validation_records: [
+                  {
+                    txt_name: "_cf-custom-hostname.www.tripolarisbarcelona.com",
+                    txt_value: "validation-token"
+                  }
+                ]
+              }
+            }
+          });
+        }
+        if (url.endsWith("/custom_hostnames/custom-hostname-1")) {
+          return Response.json({
+            success: true,
+            result: {
+              id: "custom-hostname-1",
+              hostname: "www.tripolarisbarcelona.com",
+              status: "pending",
+              ssl: {
+                status: "pending_validation",
+                validation_records: [
+                  {
+                    txt_name: "_cf-custom-hostname.www.tripolarisbarcelona.com",
+                    txt_value: "validation-token"
+                  }
+                ]
+              }
+            }
+          });
+        }
+        if (url.includes("/workers/routes")) {
+          workerRouteRequests.push(url);
+        }
+        return Response.json({ success: true, result: {} });
+      })
+    );
+    const env = createTestEnv({
+      CLOUDFLARE_API_TOKEN: "cf-token",
+      CLOUDFLARE_SAAS_ZONE_ID: "saas-zone",
+      CLOUDFLARE_SAAS_CNAME_TARGET: "customers.w7s.cloud"
+    });
+    const response = await app.fetch(
+      deployRequest(
+        {
+          "CNAME": "www.tripolarisbarcelona.com\n",
+          "dist/client/index.html": "<h1>Tripolaris</h1>"
+        },
+        {
+          "x-github-repository": "omattic/tripolarisbarcelona"
+        }
+      ),
+      env
+    );
+
+    expect(response.status).toBe(200);
+    const body = await response.json() as {
+      data?: {
+        customDomains?: string[];
+        customDomainProvisioning?: Array<{ provider?: string; dnsTarget?: string; sslStatus?: string }>;
+        customDomainWarnings?: Array<{ provider?: string; dnsTarget?: string; sslStatus?: string }>;
+      };
+    };
+    expect(body.data?.customDomains).toEqual(["www.tripolarisbarcelona.com"]);
+    expect(body.data?.customDomainProvisioning).toEqual([
+      expect.objectContaining({
+        provider: "cloudflare_for_saas",
+        dnsTarget: "customers.w7s.cloud",
+        sslStatus: "pending_validation"
+      })
+    ]);
+    expect(body.data?.customDomainWarnings).toEqual([
+      expect.objectContaining({
+        provider: "cloudflare_for_saas",
+        dnsTarget: "customers.w7s.cloud",
+        sslStatus: "pending_validation"
+      })
+    ]);
+    expect(createdHostnames).toEqual([
+      expect.objectContaining({
+        hostname: "www.tripolarisbarcelona.com",
+        ssl: { method: "txt", type: "dv" }
+      })
+    ]);
+    expect(workerRouteRequests).toEqual([]);
+    const mapping = await loadCustomDomainMapping(env, "www.tripolarisbarcelona.com");
+    expect(mapping?.repository).toBe("omattic/tripolarisbarcelona");
+  });
+
   it("attaches CNAME path routes with setup warnings", async () => {
     const workerRoutePatterns: string[] = [];
     vi.stubGlobal(
