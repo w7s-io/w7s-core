@@ -95,7 +95,7 @@ async function health(app, revision) {
 }
 try {
   const core = await (await http("https://w7s.cloud/health")).json();
-  assert.equal(core.commitHash, "4ed83f94fb2c203681583ebba4be620f79282338");
+  assert.equal(core.commitHash, "9b5b06c477613e4811925619670457b64aa426a2");
   assert.equal(core.branch, "main");
   check("W7S deployed release metadata");
   const dns = await cf("dns_records?per_page=100");
