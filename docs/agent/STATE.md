@@ -11,7 +11,8 @@
 
 ## Active Priorities
 
-- 2026-10-26: requester approved first-level Photomattic test hosts. The zone was confirmed empty of DNS records and Worker routes, with active wildcard TLS. W7S release `4ed83f94fb2c203681583ebba4be620f79282338` is deployed on main and confirmed by health (`2026-10-26T18:59:06Z`). Hosted smoke execution is in progress on `test/hosted-wildcard-smoke`; local fixture and core checks total 199 passing tests.
+- 2026-10-26: requester approved first-level Photomattic test hosts. The zone was confirmed empty of DNS records and Worker routes, with active wildcard TLS. Hosted smoke execution is in progress on `test/hosted-wildcard-smoke`; local fixture and core checks total 205 passing tests.
+- Hosted verification found that custom-host middleware still checked exact mappings only, allowing platform health/API handlers to shadow wildcard application routes. It now uses the same exact-first wildcard resolver as runtime dispatch, with GET/POST control-path regression coverage.
 
 - Generic wildcard application domains from `feat/wildcard-app-domains` are deployed. Single-label wildcard root mounts require DNS authorization; exact hosts take precedence; application/environment replacement is blocked. See `docs/wildcard-app-domains.md` for limitations and rollout gates.
 - Hosted SQLite smoke exposed missing uploader support for `cloudflare:workers`. The native uploader now preserves this exact runtime import (including TypeScript and re-exports) without attempting archive resolution. Other unsupported external packages remain rejected. Hosted re-verification follows deployment of this fix.

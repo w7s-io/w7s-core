@@ -21,6 +21,7 @@ const applications = [
 const worker = await readFile(new URL("../tests/hosted/object-store.mjs", import.meta.url), "utf8");
 const createdDns = [];
 const attempted = new Set();
+const healthy = new Set();
 const routesBefore = new Set();
 const results = [];
 let cleanupFailed = false;
@@ -88,6 +89,7 @@ async function health(app, revision) {
       assert.equal(result.commitHash, commit);
       assert.equal(result.branch, branch);
       assert(Number.isFinite(Date.parse(result.deployedAt)));
+      healthy.add(app);
       return;
     } catch (error) { last = error; await wait(5000); }
   }
@@ -95,7 +97,7 @@ async function health(app, revision) {
 }
 try {
   const core = await (await http("https://w7s.cloud/health")).json();
-  assert.equal(core.commitHash, "9b5b06c477613e4811925619670457b64aa426a2");
+  assert.equal(core.commitHash, "0e661911750c406cb8cc8f324d65c5b2667ce69a");
   assert.equal(core.branch, "main");
   check("W7S deployed release metadata");
   const dns = await cf("dns_records?per_page=100");
@@ -149,7 +151,12 @@ try {
 } finally {
   for (const app of attempted) {
     for (const name of Object.keys(app.hosts)) {
-      try { await probe(name.split(".")[0], "/api/clear", "POST"); } catch { /* DNS may not have propagated. */ }
+      try {
+        const response = await probe(name.split(".")[0], "/api/clear", "POST");
+        if (healthy.has(app)) assert.equal(response.status, 204, `Clear ${name}`);
+      } catch (error) {
+        if (healthy.has(app)) { cleanupFailed = true; console.error(`Data cleanup failed: ${error.message}`); }
+      }
     }
     try { await deploy(app, "disabled", true); } catch (error) { cleanupFailed = true; console.error(`Disable failed: ${error.message}`); }
   }

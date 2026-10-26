@@ -124,6 +124,15 @@ describe("generic wildcard domains", () => {
     await storeDeploymentRecord(env, auth);
     await storeCustomDomainMappings(env, shared, [wildcard]);
     await storeCustomDomainMappings(env, auth, ["auth.example.com"]);
+    // Application routes must take precedence over platform control-plane paths.
+    for (const path of ["/health", "/api/v1/health", "/api/v1/status", "/api/v1/deploy"]) {
+      for (const [host, script] of [["new.example.com", "shared"], ["auth.example.com", "auth"]]) {
+        const response = await app.fetch(new Request(`https://${host}${path}`, {
+          method: path === "/api/v1/deploy" ? "POST" : "GET"
+        }), env);
+        expect(await response.text()).toBe(`${script}:https://${host}${path}`);
+      }
+    }
     const request = (host: string) => app.fetch(new Request(`https://${host}/gallery`), env);
     expect(await (await request("new.example.com")).text()).toBe("shared:https://new.example.com/gallery");
     await replaceCustomDomainMappings(env, shared, [wildcard]);
