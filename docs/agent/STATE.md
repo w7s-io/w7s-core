@@ -11,6 +11,8 @@
 
 ## Active Priorities
 
+- 2026-10-26 hosted smoke preflight: local OAuth cannot inspect DNS/certificates (403); existing GitHub deployment token can. Photomattic has only an active Universal certificate for `photomattic.com` and `*.photomattic.com`. An isolated nested wildcard test requires additional TLS coverage or a dedicated disposable domain. No platform merge/deploy or DNS mutation performed. Production health still reports `87fce8a6ac81f95e8d2901fa26110b0a4aec99e7`.
+
 - Prepared generic wildcard application domains on `feat/wildcard-app-domains`, not deployed. Single-label wildcard root mounts require DNS authorization; exact hosts take precedence; application/environment replacement is blocked. See `docs/wildcard-app-domains.md` for limitations and rollout gates.
 - Added real local SQLite isolation, eviction, code-update persistence, and environment-isolation checks. Hosted deployment, DNS, and TLS checks remain pending an authorized rollout.
 

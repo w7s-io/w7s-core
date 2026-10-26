@@ -74,3 +74,12 @@ migrations. Before production activation:
    storage as part of routing rollback.
 
 The test suite does not deploy or change live DNS.
+
+### Hosted preflight evidence, 2026-10-26
+
+The 195 local tests passed again. Read-only GitHub preflight run `40379014255`
+confirmed DNS/certificate read access for the configured test zone. Its only
+certificate covers the zone apex and first-level wildcard, not a nested test
+wildcard. Hosted execution is pending a dedicated disposable domain or approval
+for additional certificate setup. Broad routing over an existing product domain
+was not used as a shortcut. No merge, production deployment, or DNS change occurred.
