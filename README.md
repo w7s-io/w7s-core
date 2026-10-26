@@ -196,6 +196,10 @@ D1 migration files are applied once in sorted order and tracked in the applicati
 
 Durable Object apps must export the declared classes from the native Worker bundle. W7S uploads them as `durable_object_namespace` bindings and creates SQLite-backed classes automatically the first time they appear.
 
+Native modules may import `DurableObject` and `WorkerEntrypoint` from
+`cloudflare:workers`; the uploader preserves this runtime-provided module rather
+than looking for it in the archive. Ordinary npm dependencies still need bundling.
+
 Applications can declare single-label wildcard root domains in `CNAME`, subject to
 DNS authorization and accessible-zone requirements. Exact hosts take precedence.
 See [wildcard application domains](docs/wildcard-app-domains.md) for setup, dynamic

@@ -11,6 +11,8 @@
 
 ## Active Priorities
 
+- Hosted SQLite smoke exposed missing uploader support for `cloudflare:workers`. The native uploader now preserves this exact runtime import (including TypeScript and re-exports) without attempting archive resolution. Other unsupported external packages remain rejected. Hosted re-verification follows deployment of this fix.
+
 - Prepared generic wildcard application domains on `feat/wildcard-app-domains`, not deployed. Single-label wildcard root mounts require DNS authorization; exact hosts take precedence; application/environment replacement is blocked. See `docs/wildcard-app-domains.md` for limitations and rollout gates.
 - Added real local SQLite isolation, eviction, code-update persistence, and environment-isolation checks. Hosted deployment, DNS, and TLS checks remain pending an authorized rollout.
 

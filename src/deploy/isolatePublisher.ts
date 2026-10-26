@@ -91,7 +91,8 @@ const joinPath = (baseDir: string, target: string) => {
 
 const isJavaScriptModulePath = (path: string) => /\.(js|mjs|ts|mts)$/i.test(path);
 const isTypeScriptModulePath = (path: string) => /\.(ts|mts)$/i.test(path);
-const isRuntimeExternalImport = (request: string) => request.startsWith("node:");
+const isRuntimeExternalImport = (request: string) =>
+  request.startsWith("node:") || request === "cloudflare:workers";
 
 export const detectWorkerEntrypoint = (archive: DeployArchive) =>
   ENTRYPOINT_CANDIDATES.find((path) => archive.files.has(path)) ?? null;
@@ -147,7 +148,7 @@ const resolveRelativeModulePath = (
   const nativeRoot = resolveNativeAppRoot(fromPath);
   if (!request.startsWith("./") && !request.startsWith("../") && !request.startsWith("/")) {
     throw new Error(
-      `Native deploy currently supports only relative imports inside ${nativeRoot}/. Unsupported import: ${request}`
+      `Native deploy supports runtime built-ins and relative imports inside ${nativeRoot}/. Unsupported import: ${request}`
     );
   }
   const basePath = request.startsWith("/")

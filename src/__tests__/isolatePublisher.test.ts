@@ -19,6 +19,21 @@ const archiveFromFiles = async (files: Record<string, string>) => {
 };
 
 describe("isolate publishing helpers", () => {
+  it.each(["js", "ts"])("preserves Cloudflare runtime imports in %s modules without uploading a fake dependency", async (extension) => {
+    const archive = await archiveFromFiles({
+      [`backend/index.${extension}`]: "import { DurableObject } from 'cloudflare:workers';\nexport class Store extends DurableObject {}\nexport { WorkerEntrypoint } from 'cloudflare:workers';\nexport default { fetch(){ return new Response('ok') } };"
+    });
+    const modules = buildIsolateUploadModules(`backend/index.${extension}`, archive);
+    expect(modules).toHaveLength(1);
+    expect(modules[0]?.content).toContain("cloudflare:workers");
+    expect(modules[0]?.content).toContain("extends DurableObject");
+  });
+
+  it.each(["cloudflare:unknown", "cloudflare:workers/../../secret", "unbundled-package", "https://example.com/code.js"])("still rejects unsupported external module %s", async (specifier) => {
+    const archive = await archiveFromFiles({ "backend/index.js": `import '${specifier}'; export default {};` });
+    expect(() => buildIsolateUploadModules("backend/index.js", archive)).toThrow(/Unsupported import/);
+  });
+
   it("detects entrypoints and uploads relative modules", async () => {
     const archive = await archiveFromFiles({
       "worker/index.ts": "import { ok } from './lib.ts'; export default { fetch(){ return new Response(String(ok)) } }",
