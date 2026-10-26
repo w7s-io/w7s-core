@@ -11,6 +11,7 @@
 
 ## Active Priorities
 
+- Hosted verification found that custom-host middleware still checked exact mappings only, allowing platform health/API handlers to shadow wildcard application routes. It now uses the same exact-first wildcard resolver as runtime dispatch, with GET/POST control-path regression coverage.
 - Hosted SQLite smoke exposed missing uploader support for `cloudflare:workers`. The native uploader now preserves this exact runtime import (including TypeScript and re-exports) without attempting archive resolution. Other unsupported external packages remain rejected. Hosted re-verification follows deployment of this fix.
 
 - Prepared generic wildcard application domains on `feat/wildcard-app-domains`, not deployed. Single-label wildcard root mounts require DNS authorization; exact hosts take precedence; application/environment replacement is blocked. See `docs/wildcard-app-domains.md` for limitations and rollout gates.
