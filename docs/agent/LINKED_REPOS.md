@@ -3,6 +3,7 @@
 ## omattic/photomattic-com-bolt
 
 - Planned consumer of generic wildcard routing and SQLite-backed Durable Objects.
+- Use first-level `<studio>.photomattic.com` hosts, not nested subdomains. Temporary hosted probes validated this shape on 2026-10-26 and were removed after testing.
 - Photomattic owns studios, hostname lookup, authorization, and SQL migrations.
 - W7S owns generic application routing, namespace bindings, and deployment only.
 - This platform package does not change or deploy Photomattic or its authentication.
