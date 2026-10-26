@@ -14,6 +14,9 @@ for (const endpoint of ["dns_records?per_page=1", "ssl/certificate_packs"]) {
   const success = response.ok && result.success === true;
   console.log(JSON.stringify({ check: endpoint.split("?")[0], status: response.status, success,
     errorCodes: result.errors?.map(error => error.code) ?? [] }));
+  if (success && endpoint === "ssl/certificate_packs") {
+    console.log(JSON.stringify({ certificates: result.result.map(pack => ({ type: pack.type, status: pack.status, hosts: pack.hosts })) }));
+  }
   failed ||= !success;
 }
 if (failed) process.exitCode = 1;
