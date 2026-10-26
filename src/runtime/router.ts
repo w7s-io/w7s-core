@@ -1,7 +1,7 @@
 import type { Env } from "../env";
 import { responseOutcome, writeAnalyticsEvent } from "../analytics";
 import {
-  loadCustomDomainRouteMappings,
+  resolveCustomDomainRouteMappings,
   loadDeploymentRecordWithCandidates,
   type DeploymentRecord
 } from "../storage/deployments";
@@ -251,7 +251,7 @@ export const resolveRuntimeRequest = async (
 
   const customDomains = host
     ? null
-    : await loadCustomDomainRouteMappings(env, requestHost, url.pathname);
+    : await resolveCustomDomainRouteMappings(env, requestHost, url.pathname);
   markTiming("host");
   if (!host && (!customDomains || customDomains.length === 0)) return null;
   if (isInternalDeliveryPath(url.pathname)) {

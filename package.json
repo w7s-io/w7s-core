@@ -14,7 +14,8 @@
     "limits:delete": "node scripts/usage-limit-policy.mjs delete",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "npm run typecheck && npm run test"
+    "test:durable": "vitest run --config vitest.durable.config.mjs",
+    "check": "npm run typecheck && npm run test && npm run test:durable"
   },
   "dependencies": {
     "@babel/standalone": "^7.28.5",
@@ -22,9 +23,12 @@
     "hono": "^4.10.7"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260522.0",
+    "@cloudflare/vitest-plugin": "^1.4.8",
+    "@cloudflare/workers-types": "^5.20261026.1",
+    "@types/node": "^22.20.5",
+    "miniflare": "^5.20261023.0-beta",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.14",
+    "vitest": "^4.1.12",
     "wrangler": "^4.46.0"
   }
 }

@@ -2,6 +2,11 @@
 
 ## Local Verification
 
+Use Node 22 and `npm ci`. `check` includes type checking, Node tests (including
+Miniflare persistence), and `npm run test:durable` inside the Workers runtime.
+Feature-branch/PR checks never deploy. Wildcard setup and hosted smoke-test gates
+are documented in [wildcard application domains](../wildcard-app-domains.md).
+
 ```sh
 npm run check
 ```

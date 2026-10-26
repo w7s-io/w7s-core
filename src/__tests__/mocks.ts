@@ -200,6 +200,8 @@ export class MemoryWorkflowBinding {
       pause: async () => undefined,
       resume: async () => undefined,
       terminate: async () => undefined,
+      delete: async () => undefined,
+      subscribe: async () => { throw new Error("Workflow subscriptions are not implemented by this test double."); },
       restart: async () => undefined,
       sendEvent: async () => undefined,
       status: async () => binding.statuses.get(id) ?? { status: "queued" }

@@ -1,5 +1,12 @@
 # W7S Core Linked Repositories
 
+## omattic/photomattic-com-bolt
+
+- Planned consumer of generic wildcard routing and SQLite-backed Durable Objects.
+- Photomattic owns studios, hostname lookup, authorization, and SQL migrations.
+- W7S owns generic application routing, namespace bindings, and deployment only.
+- This platform package does not change or deploy Photomattic or its authentication.
+
 ## omattic/inbox
 
 - Uses one tenant branch per workspace, starting with `inglesconliza`.

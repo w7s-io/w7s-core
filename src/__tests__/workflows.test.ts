@@ -417,6 +417,7 @@ describe("Workflow delivery", () => {
     const output = await workflow.run(
       {
         instanceId: "instance-1",
+        workflowName: "process-order",
         timestamp: new Date("2026-05-26T00:00:00.000Z"),
         payload: {
           version: 1,

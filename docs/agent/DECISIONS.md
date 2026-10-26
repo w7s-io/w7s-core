@@ -1,5 +1,14 @@
 # W7S Core Agent Decisions
 
+## 2026-10-26: Generic wildcard routes, application-owned object models
+
+W7S provides generic wildcard domains and existing SQLite Durable Object namespaces.
+Applications own object IDs, tenant registries, authorization, SQL schemas, and
+business lifecycle operations. No studio concepts belong in W7S. Exact hosts
+override single-label wildcard matches. Wildcards require DNS authorization and
+an accessible Cloudflare zone; SaaS wildcards are deferred. Existing KV claim checks
+are not a transactional domain ownership lock.
+
 ## 2026-09-07: External-DNS Custom Domains Use Cloudflare for SaaS
 
 W7S supports a second custom-domain provider for domains whose Cloudflare zones are not visible to the W7S API token. The existing Worker Route path remains the default whenever W7S can find the customer's Cloudflare zone. If no matching zone is visible and `CLOUDFLARE_SAAS_ZONE_ID` is configured, W7S provisions a Cloudflare for SaaS Custom Hostname in the provider zone and stores the normal W7S runtime mapping.

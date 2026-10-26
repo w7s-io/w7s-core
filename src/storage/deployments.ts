@@ -966,6 +966,28 @@ export const loadCustomDomainRouteMappings = async (
   return sortRouteMappings([...deduped.values()]);
 };
 
+// Wildcards match exactly one label. Claim checks use the exact loader above.
+export const wildcardHostnameFor = (hostname: string) => {
+  const labels = hostname.trim().toLowerCase().split(".");
+  return labels.length >= 3 && !labels.includes("*")
+    ? `*.${labels.slice(1).join(".")}`
+    : null;
+};
+
+export const resolveCustomDomainRouteMappings = async (
+  env: Env,
+  hostname: string,
+  pathname: string
+) => {
+  const exact = await loadCustomDomainRouteMappings(env, hostname, pathname);
+  if (exact.length > 0) return exact;
+  // An exact host with path-only mounts is reserved even outside those paths.
+  const claimed = await env.DEPLOYMENTS_KV.get(customDomainRoutesKey(hostname));
+  if (claimed) return [];
+  const wildcard = wildcardHostnameFor(hostname);
+  return wildcard ? loadCustomDomainRouteMappings(env, wildcard, pathname) : [];
+};
+
 export const storeQueueMappings = async (
   env: Env,
   record: DeploymentRecord,

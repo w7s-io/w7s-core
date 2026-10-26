@@ -6,6 +6,7 @@ import {
   loadCustomDomainMapping,
   loadCustomDomainRouteMapping,
   loadDeploymentRecord,
+  wildcardHostnameFor,
   type DeploymentRecord
 } from "../storage/deployments";
 
@@ -47,7 +48,7 @@ export type BlockedCustomDomain = {
   hostname: string;
   pathPrefix?: string;
   domain: string;
-  reason: "txt_allowlist_mismatch";
+  reason: "txt_allowlist_mismatch" | "wildcard_claim_conflict";
   txtName: string;
   txtValue: string;
   currentRepository?: string;
@@ -121,8 +122,12 @@ const normalizeCustomDomainRoute = (value: string): CustomDomainRoute | null => 
     pathPrefix = slashIndex === -1 ? "/" : normalizePathPrefix(candidate.slice(slashIndex));
   }
   hostname = hostname.replace(/\.$/, "");
-  if (!HOSTNAME_PATTERN.test(hostname)) {
+  const wildcard = hostname.startsWith("*.");
+  if (!HOSTNAME_PATTERN.test(wildcard ? hostname.slice(2) : hostname) || hostname.length > 253) {
     throw new Error(`Invalid custom domain in CNAME file: ${value}`);
+  }
+  if (wildcard && pathPrefix !== "/") {
+    throw new Error("Wildcard custom domains only support root mounts.");
   }
   return { hostname, pathPrefix };
 };
@@ -151,6 +156,9 @@ export const readCustomDomains = (
 };
 
 export const branchCustomDomain = (route: CustomDomainRoute, branchPrefix: string) => {
+  if (route.hostname.startsWith("*.")) {
+    throw new Error("Wildcard custom domains require main or direct branch mode with an environment-specific domain.");
+  }
   const prefix = branchPrefix.trim().toLowerCase();
   const labels = route.hostname.split(".");
   const firstLabel = labels[0];
@@ -496,8 +504,20 @@ export const planCustomDomainClaims = async (params: {
 
   for (const route of params.routes) {
     const { hostname, pathPrefix } = route;
+    const wildcard = hostname.startsWith("*.");
+    const parentWildcard = wildcardHostnameFor(hostname);
+    const wildcardClaim = parentWildcard
+      ? await loadCustomDomainRouteMapping(params.env, parentWildcard, "/")
+      : null;
+    const baseDomain = params.env.W7S_BASE_DOMAIN?.trim().toLowerCase() || "w7s.cloud";
+    if (wildcard && (hostname === `*.${baseDomain}` || hostname.endsWith(`.${baseDomain}`))) {
+      throw new Error("Wildcard application domains cannot use the W7S platform domain.");
+    }
     const zone = await lookupZoneForHostname(params.env, hostname);
     if (!zone) {
+      if (wildcard || wildcardClaim) {
+        throw new Error("Wildcard custom domains require a Cloudflare zone accessible to W7S; SaaS wildcard provisioning is not supported.");
+      }
       if (!cloudflareForSaasEnabled(params.env)) {
         throw new Error(`Unable to find a Cloudflare zone for custom domain ${hostname}.`);
       }
@@ -542,6 +562,25 @@ export const planCustomDomainClaims = async (params: {
     const existing = await loadCustomDomainRouteMapping(params.env, hostname, pathPrefix);
     const sameRepo = existing?.orgSlug === orgSlug && existing.repoSlug === repoSlug;
     const txt = await lookupTxtAllowlist(txtName);
+    // A broad claim must never use the legacy permissive no-TXT path.
+    // Exact exceptions beneath it also require explicit domain authorization.
+    if (wildcard || wildcardClaim) {
+      const conflict = wildcard && existing && (
+        !sameRepo || existing.environment !== (params.environment ?? "production")
+      );
+      if (conflict || !txt.hasTxt || !isAuthorizedByAllowlist({ allowlist: txt.allowlist, orgSlug, repoSlug })) {
+        plan.blocked.push({
+          hostname, domain: zone.name,
+          reason: conflict ? "wildcard_claim_conflict" : "txt_allowlist_mismatch",
+          txtName, txtValue,
+          ...(existing?.repository ? { currentRepository: existing.repository } : {}),
+          message: conflict
+            ? `Wildcard ${hostname} is already attached to another application or environment; release that claim first.`
+            : `Wildcard domains and their exact overrides require TXT ${txtName} authorizing ${txtValue}.`
+        });
+        continue;
+      }
+    }
     const frontDoorWarning = await frontDoorDelegationWarning({
       env: params.env,
       hostname,

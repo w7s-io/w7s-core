@@ -196,6 +196,11 @@ D1 migration files are applied once in sorted order and tracked in the applicati
 
 Durable Object apps must export the declared classes from the native Worker bundle. W7S uploads them as `durable_object_namespace` bindings and creates SQLite-backed classes automatically the first time they appear.
 
+Applications can declare single-label wildcard root domains in `CNAME`, subject to
+DNS authorization and accessible-zone requirements. Exact hosts take precedence.
+See [wildcard application domains](docs/wildcard-app-domains.md) for setup, dynamic
+SQLite object patterns, limitations, and rollout verification.
+
 Hyperdrive bindings reference existing Cloudflare Hyperdrive configuration IDs. W7S uploads those bindings but does not create or rotate Hyperdrive configs yet.
 
 Native backends automatically receive `W7S_RPC`, `W7S_RPC_TOKEN`, `W7S_OWNER`, `W7S_REPO`, `W7S_REPOSITORY`, and `W7S_ENVIRONMENT`. Same-owner apps can call each other by default. Cross-owner calls are accepted only when the target deployment's `w7s.json` lists the caller owner or exact `owner/repo` in `rpc.allow`.

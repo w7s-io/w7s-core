@@ -11,6 +11,9 @@
 
 ## Active Priorities
 
+- Prepared generic wildcard application domains on `feat/wildcard-app-domains`, not deployed. Single-label wildcard root mounts require DNS authorization; exact hosts take precedence; application/environment replacement is blocked. See `docs/wildcard-app-domains.md` for limitations and rollout gates.
+- Added real local SQLite isolation, eviction, code-update persistence, and environment-isolation checks. Hosted deployment, DNS, and TLS checks remain pending an authorized rollout.
+
 - Monorepo deployments can declare a stable `name` in each leaf `w7s.json`. W7S scopes every existing repository-based deployment surface through an effective application identity, so sibling folders do not overwrite each other.
 - Permanent tenant branches can set `routing.customDomainBranchMode` to `direct` and `routing.defaultDomain` to `false`, attaching only their declared custom hostname without a generated `*.w7s.cloud` route. Direct-mode CNAME hostnames may contain `{branch}`, which resolves to the sanitized source branch so one tenant template can provision `demo.omattic.com`, `inglesconliza.omattic.com`, and later workspaces without branch-specific commits.
 - Native deployments receive branch, full commit hash, deployment time, source repository, and application identity as W7S metadata bindings plus legacy health metadata aliases.
