@@ -1,0 +1,28 @@
+name: Hosted wildcard smoke
+on:
+  push:
+    branches: [test/hosted-wildcard-smoke]
+    paths: [scripts/hosted-smoke.mjs, tests/hosted/**, .github/workflows/hosted-smoke.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: hosted-wildcard-smoke
+  cancel-in-progress: false
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/hosted-smoke.mjs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          SMOKE_ZONE_ID: ${{ vars.SMOKE_ZONE_ID }}
+          SMOKE_DOMAIN: ${{ vars.SMOKE_DOMAIN }}
+          GH_TOKEN: ${{ github.token }}

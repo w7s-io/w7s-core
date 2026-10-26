@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:durable": "vitest run --config vitest.durable.config.mjs",
-    "check": "npm run typecheck && npm run test && npm run test:durable"
+    "test:hosted-fixture": "vitest run --config vitest.hosted.config.mjs",
+    "check": "npm run typecheck && npm run test && npm run test:durable && npm run test:hosted-fixture"
   },
   "dependencies": {
     "@babel/standalone": "^7.28.5",

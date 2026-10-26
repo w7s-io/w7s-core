@@ -11,9 +11,9 @@
 
 ## Active Priorities
 
-- 2026-10-26 hosted smoke preflight: local OAuth cannot inspect DNS/certificates (403); existing GitHub deployment token can. Photomattic has only an active Universal certificate for `photomattic.com` and `*.photomattic.com`. An isolated nested wildcard test requires additional TLS coverage or a dedicated disposable domain. No platform merge/deploy or DNS mutation performed. Production health still reports `87fce8a6ac81f95e8d2901fa26110b0a4aec99e7`.
+- 2026-10-26: requester approved first-level Photomattic test hosts. The zone was confirmed empty of DNS records and Worker routes, with active wildcard TLS. W7S release `4ed83f94fb2c203681583ebba4be620f79282338` is deployed on main and confirmed by health (`2026-10-26T18:59:06Z`). Hosted smoke execution is in progress on `test/hosted-wildcard-smoke`; local fixture and core checks total 199 passing tests.
 
-- Prepared generic wildcard application domains on `feat/wildcard-app-domains`, not deployed. Single-label wildcard root mounts require DNS authorization; exact hosts take precedence; application/environment replacement is blocked. See `docs/wildcard-app-domains.md` for limitations and rollout gates.
+- Generic wildcard application domains from `feat/wildcard-app-domains` are deployed. Single-label wildcard root mounts require DNS authorization; exact hosts take precedence; application/environment replacement is blocked. See `docs/wildcard-app-domains.md` for limitations and rollout gates.
 - Added real local SQLite isolation, eviction, code-update persistence, and environment-isolation checks. Hosted deployment, DNS, and TLS checks remain pending an authorized rollout.
 
 - Monorepo deployments can declare a stable `name` in each leaf `w7s.json`. W7S scopes every existing repository-based deployment surface through an effective application identity, so sibling folders do not overwrite each other.

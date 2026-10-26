@@ -9,6 +9,15 @@ exporting it, reports access status and public certificate host coverage, and
 does not modify DNS, certificates, or deployments. Syntax check:
 `node --check scripts/hosted-smoke-preflight.mjs`.
 
+Hosted smoke execution: `.github/workflows/hosted-smoke.yml` on
+`test/hosted-wildcard-smoke` uses `SMOKE_ZONE_ID` and `SMOKE_DOMAIN`, the existing
+Cloudflare secret and the repository-scoped GitHub token. It refuses zones with
+existing DNS/routes, creates temporary TXT/wildcard DNS, deploys token-protected
+fixtures with a 20-minute access expiry, verifies metadata/isolation/redeployment,
+and removes created DNS/routes in `finally`. Test apps are redeployed disabled
+without custom hostnames; empty namespaces are retained. Do not cancel a running
+job during cleanup. `npm run test:hosted-fixture` is entirely local.
+
 Use Node 22 and `npm ci`. `check` includes type checking, Node tests (including
 Miniflare persistence), and `npm run test:durable` inside the Workers runtime.
 Feature-branch/PR checks never deploy. Wildcard setup and hosted smoke-test gates
