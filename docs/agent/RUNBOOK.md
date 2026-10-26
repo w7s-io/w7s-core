@@ -18,6 +18,8 @@ and removes created DNS/routes in `finally`. Test apps are redeployed disabled
 without custom hostnames; empty namespaces are retained. Do not cancel a running
 job during cleanup. `npm run test:hosted-fixture` is entirely local.
 
+Successful reference run: [40384437801](https://github.com/w7s-io/w7s-core/actions/runs/40384437801), core release `0e66191`, fixture source `da85cf1`. The harness pins the expected core commit, so update it deliberately for a new release. First-level hosts use existing `*.photomattic.com` TLS, no nested subdomains or extra certificate. Cleanup verifies successful data-clear responses for healthy applications. Run the read-only preflight after completion to independently confirm DNS/routes are empty.
+
 Use Node 22 and `npm ci`. `check` includes type checking, Node tests (including
 Miniflare persistence), and `npm run test:durable` inside the Workers runtime.
 Feature-branch/PR checks never deploy. Wildcard setup and hosted smoke-test gates
@@ -126,7 +128,7 @@ Query `w7s_platform_events` for `runtime_request` rows by repository, environmen
 After deployment, verify backend metadata with:
 
 ```sh
-curl -fsS https://w7s.io/health
+curl -fsS https://w7s.cloud/health
 ```
 
 The response must expose `branch`, `commitHash`, and `deployedAt`.
