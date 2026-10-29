@@ -1,6 +1,7 @@
 import { Hono, type Context } from "hono";
 import type { Env } from "./env";
 import { handleDeploy } from "./api/deploy";
+import { handleDeployFailureGet } from "./deploy/failureDiagnostics";
 import { handleRpc } from "./api/rpc";
 import { handleQueueSend } from "./api/queues";
 import { handleWorkflowCreate, handleWorkflowStatus } from "./api/workflows";
@@ -99,6 +100,9 @@ app.post("/api/v1/deploy", async (c) => {
   else await notification;
   return response;
 });
+app.get("/api/v1/deploy/failures/:diagnosticId", (c) =>
+  handleDeployFailureGet(c.req.raw, c.env, c.req.param("diagnosticId"))
+);
 app.post("/api/v1/deploy/status", handleDeployStatus);
 app.all("/api/v1/rpc/*", handleRpc);
 app.post("/api/v1/ai/run", handleAiRun);

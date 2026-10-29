@@ -1,5 +1,9 @@
 # W7S Core Agent Decisions
 
+## 2026-10-29: Retained diagnostics for unexpected deployment failures
+
+Unexpected deployment failures must return a structured 500 with a diagnostic ID, failed sub-operation, and an `x-w7s-diagnostic-id` header. W7S retains a bounded record in the deployments KV namespace for 30 days, and exposes it only to a GitHub token authorized for the recorded source repository. This gives deployers actionable incident evidence without retaining uploaded archives, bearer tokens, or secret binding values.
+
 ## 2026-10-26: Generic wildcard routes, application-owned object models
 
 W7S provides generic wildcard domains and existing SQLite Durable Object namespaces.

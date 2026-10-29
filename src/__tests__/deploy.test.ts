@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { zipSync } from "fflate";
 import { app } from "../worker";
-import { createTestEnv, MemoryAnalyticsEngine } from "./mocks";
+import { createTestEnv, MemoryAnalyticsEngine, MemoryKV } from "./mocks";
 import {
   loadCustomDomainMapping,
   loadDeploymentRecord,
@@ -13,6 +13,7 @@ import {
 import { recordUsageEvent } from "../usage";
 import { usageLimitPolicyKey } from "../usageLimits";
 import { applicationScopedRepoSlug } from "../names";
+import { deployFailureKey } from "../deploy/failureDiagnostics";
 
 const zipBytes = (files: Record<string, string>) =>
   zipSync(
@@ -138,6 +139,69 @@ describe("deploy API", () => {
         ""
       ],
       doubles: [2, 200, 0]
+    });
+  });
+
+  it("returns and retains a diagnostic ID when deployment metadata persistence fails", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input).startsWith("https://api.github.com/repos/")) {
+          return Response.json({ full_name: "w7s-io/demo" });
+        }
+        return Response.json({ success: true, result: {} });
+      })
+    );
+    const backingKv = new MemoryKV();
+    const failingDeploymentKv = {
+      get: backingKv.get.bind(backingKv),
+      getWithMetadata: backingKv.getWithMetadata.bind(backingKv),
+      delete: backingKv.delete.bind(backingKv),
+      list: backingKv.list.bind(backingKv),
+      put: async (key: string, value: string | ArrayBuffer | ArrayBufferView | ReadableStream, options?: KVNamespacePutOptions) => {
+        if (key.startsWith("deployment:v1:")) throw new Error("simulated metadata KV failure");
+        return backingKv.put(key, value, options);
+      }
+    } as unknown as KVNamespace;
+    const env = createTestEnv({ DEPLOYMENTS_KV: failingDeploymentKv });
+    const response = await app.fetch(
+      deployRequest({ "frontend/dist/index.html": "<h1>Hello</h1>" }),
+      env
+    );
+
+    expect(response.status).toBe(500);
+    const body = await response.json() as {
+      error: string;
+      details?: { diagnosticId?: string; stage?: string };
+    };
+    expect(body.error).toContain("Deployment failed during metadata.store");
+    expect(body.details).toMatchObject({ stage: "metadata.store" });
+    expect(body.details?.diagnosticId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(response.headers.get("x-w7s-diagnostic-id")).toBe(body.details?.diagnosticId);
+
+    const diagnostic = await backingKv.get(deployFailureKey(body.details?.diagnosticId ?? ""), "json") as {
+      repository?: string;
+      stage?: string;
+      commitSha?: string;
+      error?: { message?: string };
+    };
+    expect(diagnostic).toMatchObject({
+      repository: "w7s-io/demo",
+      stage: "metadata.store",
+      commitSha: "abc123",
+      error: { message: "simulated metadata KV failure" }
+    });
+
+    const lookup = await app.fetch(
+      new Request(`https://w7s.cloud/api/v1/deploy/failures/${body.details?.diagnosticId}`, {
+        headers: { authorization: "Bearer github-token" }
+      }),
+      env
+    );
+    expect(lookup.status).toBe(200);
+    await expect(lookup.json()).resolves.toMatchObject({
+      status: "success",
+      data: { diagnostic: { stage: "metadata.store", repository: "w7s-io/demo" } }
     });
   });
 

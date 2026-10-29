@@ -117,6 +117,17 @@ curl -fsS https://w7s.cloud/health
 
 The response must expose `branch`, `commitHash`, and `deployedAt`.
 
+## Deployment failure diagnostics
+
+For an unexpected `POST /api/v1/deploy` 500, retain the `x-w7s-diagnostic-id` header or `details.diagnosticId` from the JSON response. Using a GitHub token authorized for the affected repository, read the retained record with:
+
+```sh
+curl "https://w7s.cloud/api/v1/deploy/failures/<diagnostic-id>" \
+  -H "Authorization: Bearer $GITHUB_ACTIONS_OIDC_TOKEN"
+```
+
+The record names the failed sub-operation, includes safe deployment metadata and a bounded exception message, and expires after 30 days. Do not paste bearer tokens, archive contents, or application secret values into incident notes.
+
 For shared Email Routing, point the routing rule at the W7S Core Worker. The default target is the `production` environment of `omattic/inbox-gateway`. Set `W7S_EMAIL_GATEWAY_ORG`, `W7S_EMAIL_GATEWAY_REPO`, `W7S_EMAIL_GATEWAY_APPLICATION`, or `W7S_EMAIL_GATEWAY_ENVIRONMENT` only when an alternate deployment is required.
 
 W7S Core passes the single-use raw email stream to the gateway for workspace validation and signing. The gateway returns that signed stream, and Core resolves `https://<workspace>.omattic.com/api/email/inbound/raw` internally through the custom-domain route registry. Never make the gateway fetch that public hostname during the active email event.

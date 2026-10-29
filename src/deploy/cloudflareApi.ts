@@ -6,6 +6,11 @@ export type CloudflareEnvelope<T> = {
   result?: T;
 };
 
+export type CloudflareApiError = Error & {
+  status?: number;
+  cfRay?: string;
+};
+
 export const buildCloudflareHeaders = (apiToken: string, contentType?: string) => ({
   authorization: `Bearer ${apiToken}`,
   ...(contentType ? { "content-type": contentType } : {})
@@ -23,7 +28,11 @@ export const parseCloudflareEnvelope = async <T>(response: Response) => {
     return parsed?.result ?? null;
   }
   const message = parsed?.errors?.map((entry) => entry.message?.trim()).filter(Boolean).join("; ");
-  throw new Error(message || text || `Cloudflare API request failed (${response.status}).`);
+  const error = new Error(message || text || `Cloudflare API request failed (${response.status}).`) as CloudflareApiError;
+  error.status = response.status;
+  const cfRay = response.headers.get("cf-ray");
+  if (cfRay) error.cfRay = cfRay;
+  throw error;
 };
 
 const asNonEmptyString = (value: unknown) => {

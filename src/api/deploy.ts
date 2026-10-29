@@ -54,6 +54,11 @@ import {
 } from "../storage/deployments";
 import { enforceAppNotSuspended } from "../appLimits";
 import { captureBillingReservation, refundBillingReservation, reserveBillingCredits, type BillingReservation } from "../billing";
+import {
+  createDeployFailureContext,
+  deploymentFailureResponse,
+  type DeployFailureContext
+} from "../deploy/failureDiagnostics";
 
 type HonoContext = Context<{ Bindings: Env }>;
 
@@ -125,7 +130,7 @@ const nativeBackendSkippedWarning = (roots: string[]): DeployWarning => {
   };
 };
 
-export const handleDeploy = async (c: HonoContext) => {
+const handleDeployRequest = async (c: HonoContext, diagnostic: DeployFailureContext) => {
   const token = parseBearerToken(c.req.raw);
   if (!token) return jsonError("Missing bearer token.", 401);
   if (!isZipRequest(c.req.raw)) {
@@ -145,6 +150,7 @@ export const handleDeploy = async (c: HonoContext) => {
 
   const repo = parseGitHubRepository(repositoryHeader);
   if (!repo) return jsonError("x-github-repository must be in owner/repo form.", 400);
+  diagnostic.repository = repo.fullName;
 
   const orgSlug = requireSlug(repo.owner, "repository owner");
   const sourceRepoSlug = requireSlug(repo.repo, "repository name");
@@ -158,7 +164,11 @@ export const handleDeploy = async (c: HonoContext) => {
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : String(error), 400);
   }
+  diagnostic.environment = environment;
+  diagnostic.branch = branch;
+  diagnostic.commitSha = commitSha;
 
+  diagnostic.stage = "github.authorize";
   const allowed = await verifyGitHubRepoAccess({
     token,
     owner: repo.owner,
@@ -172,7 +182,9 @@ export const handleDeploy = async (c: HonoContext) => {
   let appManifest;
   let deployValues;
   try {
+    diagnostic.stage = "archive.read";
     archive = await readDeployArchive(c.req.raw);
+    diagnostic.stage = "manifest.read";
     appManifest = readAppManifest(archive);
     deployValues = readDeployValues(c);
   } catch (error) {
@@ -192,6 +204,7 @@ export const handleDeploy = async (c: HonoContext) => {
   } catch (error) {
     return jsonError(error instanceof Error ? error.message : String(error), 400);
   }
+  diagnostic.application = application;
   const repoSlug = applicationScopedRepoSlug(sourceRepoSlug, application);
 
   const limitResponse = await enforceUsageLimit(c.env, {
@@ -211,6 +224,7 @@ export const handleDeploy = async (c: HonoContext) => {
   });
   if (suspensionResponse) return suspensionResponse;
 
+  diagnostic.stage = "billing.reserve";
   const billingReservation = await reserveBillingCredits(c.env, {
     githubOwnerLogin: orgSlug,
     githubOwnerType: "org",
@@ -319,6 +333,7 @@ export const handleDeploy = async (c: HonoContext) => {
         ? buildStableScriptName(orgSlug, repoSlug, environment)
         : buildDeploymentScriptName(orgSlug, repoSlug, environment, commitSha);
       const scriptTags = buildScriptTags({ environment, orgSlug, repoSlug });
+      diagnostic.stage = "worker.publish";
       const provisionedBindings = await provisionAppBindings({
         env: c.env,
         archive,
@@ -415,6 +430,7 @@ export const handleDeploy = async (c: HonoContext) => {
     }
 
     if (hasStatic) {
+      diagnostic.stage = "static.publish";
       const publishedStatic = await publishStaticSite({
         env: c.env,
         archive,
@@ -435,6 +451,7 @@ export const handleDeploy = async (c: HonoContext) => {
     }
 
     if (customDomains.length > 0) {
+      diagnostic.stage = "custom-domains.plan";
       const customDomainPlan = await planCustomDomainClaims({
         env: c.env,
         routes: customDomains,
@@ -450,8 +467,8 @@ export const handleDeploy = async (c: HonoContext) => {
       customDomainProvisioning = customDomainPlan.provisioning;
     }
   } catch (error) {
-    await refundBillingReservation(c.env, billingReservation as BillingReservation | null);
-    return jsonError(error instanceof Error ? error.message : String(error), 500);
+    await refundBillingReservation(c.env, billingReservation as BillingReservation | null).catch(() => undefined);
+    return deploymentFailureResponse(c.env, diagnostic, error);
   }
 
   if (!defaultDomainEnabled && attachedCustomDomains.length === 0) {
@@ -485,15 +502,19 @@ export const handleDeploy = async (c: HonoContext) => {
     ...(appManifest.schedules.length > 0 ? { schedules: appManifest.schedules } : {}),
     targets
   };
+  diagnostic.stage = "metadata.store";
   await storeDeploymentRecord(c.env, record);
   if (customDomainsEnabled) {
+    diagnostic.stage = "route-mappings.store";
     await replaceCustomDomainMappings(c.env, record, attachedCustomDomainRoutes);
   } else {
     await replaceCustomDomainMappings(c.env, record, attachedCustomDomainRoutes, {
       staleHostnamePrefix: `${branchCustomDomainPrefix}--`
     });
   }
+  diagnostic.stage = "queue-mappings.store";
   await replaceQueueMappings(c.env, record, record.queue?.queues ?? []);
+  diagnostic.stage = "schedule-mappings.store";
   await replaceScheduleMappings(c.env, record, record.schedules ?? []);
   if (attachedCustomDomains.length > 0) {
     try {
@@ -501,14 +522,16 @@ export const handleDeploy = async (c: HonoContext) => {
         (route) => route.provider === "worker_route"
       );
       if (workerRouteCustomDomains.length > 0) {
+        diagnostic.stage = "worker-routes.attach";
         await attachCustomDomainRoutes(c.env, workerRouteCustomDomains);
       }
     } catch (error) {
-      await refundBillingReservation(c.env, billingReservation as BillingReservation | null);
-      return jsonError(error instanceof Error ? error.message : String(error), 500);
+      await refundBillingReservation(c.env, billingReservation as BillingReservation | null).catch(() => undefined);
+      return deploymentFailureResponse(c.env, diagnostic, error);
     }
   }
 
+  diagnostic.stage = "analytics.record";
   writeAnalyticsEvent(c.env, {
     event: "deploy",
     repository: repo.fullName,
@@ -544,6 +567,7 @@ export const handleDeploy = async (c: HonoContext) => {
     });
   }
 
+  diagnostic.stage = "billing.capture";
   await captureBillingReservation(c.env, billingReservation as BillingReservation | null);
 
   return jsonSuccess({
@@ -583,4 +607,13 @@ export const handleDeploy = async (c: HonoContext) => {
     ...(customDomainWarnings.length > 0 ? { customDomainWarnings } : {}),
     ...(blockedCustomDomains.length > 0 ? { blockedCustomDomains } : {})
   });
+};
+
+export const handleDeploy = async (c: HonoContext) => {
+  const diagnostic = createDeployFailureContext();
+  try {
+    return await handleDeployRequest(c, diagnostic);
+  } catch (error) {
+    return deploymentFailureResponse(c.env, diagnostic, error);
+  }
 };

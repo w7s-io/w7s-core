@@ -648,6 +648,30 @@ Example:
 }
 ```
 
+## Failure Diagnostics
+
+Unexpected deployment failures return JSON with HTTP `500`, an `x-w7s-diagnostic-id` response header, and a stable diagnostic ID. The record retains the failed sub-operation, repository deployment metadata, and a bounded error message for 30 days. It never stores archive contents, bearer tokens, or declared secret values.
+
+```json
+{
+  "status": "error",
+  "error": "Deployment failed during metadata.store. Include diagnostic ID 6c2fa87e-52ac-4f6a-a5e2-4c8fc6bb5e86 when requesting support.",
+  "details": {
+    "diagnosticId": "6c2fa87e-52ac-4f6a-a5e2-4c8fc6bb5e86",
+    "stage": "metadata.store"
+  }
+}
+```
+
+The GitHub token for the source repository can retrieve the retained record:
+
+```sh
+curl "https://w7s.cloud/api/v1/deploy/failures/<diagnostic-id>" \
+  -H "Authorization: Bearer $GITHUB_ACTIONS_OIDC_TOKEN"
+```
+
+Only a token authorized for the recorded source repository can read the record. Expected validation, authorization, and quota responses retain their existing non-500 status codes and do not create a failure diagnostic.
+
 When a custom domain is blocked, the deployment still publishes and returns the normal `w7s.cloud` URL unless `routing.defaultDomain` is `false`:
 
 ```json
