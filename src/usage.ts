@@ -265,38 +265,38 @@ export const rebuildUsageAggregatesForDate = async (env: Env, params: {
     ownerMetrics.set(owner, ownerBucket);
   }
 
-  await Promise.all([
-    ...[...ownerMetrics.entries()].map(([orgSlug, metrics]) =>
-      putKvWithRetry(
-        env.DEPLOYMENTS_KV,
-        usageOwnerKey({ date: params.date, environment: params.environment, orgSlug }),
-        JSON.stringify({
-          version: 1,
-          date: params.date,
-          orgSlug,
-          repoSlug: OWNER_REPO_SLUG,
-          environment: params.environment,
-          repository: `${orgSlug}/*`,
-          metrics,
-          updatedAt: now
-        } satisfies UsageDailyRollup)
-      )
-    ),
-    putKvWithRetry(
+  // KV only accepts one write to a given key per second. Keep aggregate writes
+  // serial so a fleet collection does not create a burst against shared keys.
+  for (const [orgSlug, metrics] of ownerMetrics) {
+    await putKvWithRetry(
       env.DEPLOYMENTS_KV,
-      usageGlobalKey(params),
+      usageOwnerKey({ date: params.date, environment: params.environment, orgSlug }),
       JSON.stringify({
         version: 1,
         date: params.date,
-        orgSlug: GLOBAL_ORG_SLUG,
-        repoSlug: GLOBAL_REPO_SLUG,
+        orgSlug,
+        repoSlug: OWNER_REPO_SLUG,
         environment: params.environment,
-        repository: "*/*",
-        metrics: globalMetrics,
+        repository: `${orgSlug}/*`,
+        metrics,
         updatedAt: now
       } satisfies UsageDailyRollup)
-    )
-  ]);
+    );
+  }
+  await putKvWithRetry(
+    env.DEPLOYMENTS_KV,
+    usageGlobalKey(params),
+    JSON.stringify({
+      version: 1,
+      date: params.date,
+      orgSlug: GLOBAL_ORG_SLUG,
+      repoSlug: GLOBAL_REPO_SLUG,
+      environment: params.environment,
+      repository: "*/*",
+      metrics: globalMetrics,
+      updatedAt: now
+    } satisfies UsageDailyRollup)
+  );
 };
 
 export const recordUsageEvent = async (env: Env, event: UsageEvent) => {

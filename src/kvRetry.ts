@@ -13,7 +13,10 @@ export const putKvWithRetry = async (
   value: string | ArrayBuffer | ArrayBufferView | ReadableStream,
   options?: KVNamespacePutOptions
 ) => {
-  const delays = [50, 150, 450];
+  // Workers KV permits one write per key per second. Start retries after that
+  // window and exponentially back off so shared rollup keys can recover from
+  // concurrent writers without surfacing a transient 429 as a failed job.
+  const delays = [1_000, 2_000, 4_000, 8_000];
   for (let attempt = 0; ; attempt += 1) {
     try {
       await kv.put(key, value, options);

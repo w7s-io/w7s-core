@@ -349,7 +349,7 @@ describe("Cloudflare usage collector", () => {
     ).resolves.toHaveLength(1);
   });
 
-  it("limits concurrent deployment collection to avoid KV write bursts", async () => {
+  it("bounds metric queries and rebuilds shared aggregates once after the fleet scan", async () => {
     let active = 0;
     let maxActive = 0;
     vi.stubGlobal("fetch", vi.fn(async () => {
@@ -401,9 +401,25 @@ describe("Cloudflare usage collector", () => {
       }));
     }
 
+    const originalPut = env.DEPLOYMENTS_KV.put.bind(env.DEPLOYMENTS_KV);
+    const aggregateWrites: string[] = [];
+    env.DEPLOYMENTS_KV.put = vi.fn(async (key: string, value, options) => {
+      if (
+        key.startsWith("usage_owner_daily:v1:") ||
+        key.startsWith("usage_global_daily:v1:")
+      ) {
+        aggregateWrites.push(key);
+      }
+      return originalPut(key, value, options);
+    }) as KVNamespace["put"];
+
     const result = await collectHourlyCloudflareUsage(env, new Date("2026-05-26T12:15:00.000Z"));
 
     expect(result).toEqual(expect.objectContaining({ deployments: 10, failures: 0 }));
     expect(maxActive).toBeLessThanOrEqual(4);
+    expect(aggregateWrites).toEqual([
+      "usage_owner_daily:v1:2026-05-26:production:acme",
+      "usage_global_daily:v1:2026-05-26:production"
+    ]);
   });
 });

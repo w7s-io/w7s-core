@@ -4,6 +4,7 @@
 
 - W7S core routes deployed apps from default domains, repo-prefix paths, and custom domains.
 - Runtime usage is accounted through `runtime.request` and app suspension is enforced by W7S cost guards.
+- The hourly Cloudflare usage collector merges each app into its daily rollup, then rebuilds shared owner/global aggregates once per environment with serialized KV writes. This avoids Workers KV same-key 429s during fleet scans.
 - The `omattic` organization is exempt from W7S-owned daily, burst, suspension, and free-tier deployment-shape enforcement. Usage is still recorded for observability, and Cloudflare platform limits still apply.
 - Production config generation must preserve `W7S_LIMIT_EXEMPT_ORGS`. The canonical Wrangler file alone is insufficient because GitHub Actions deploys `wrangler.generated.jsonc`; omitting the variable there causes stale or newly collected limit states to suspend otherwise exempt Omattic leaf applications.
 - Short-window `runtime.request` limits can suspend apps when real application traffic exceeds policy.

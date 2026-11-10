@@ -564,7 +564,8 @@ export const mergeCloudflareHourlyIntoDaily = async (
     orgSlug: string;
     repoSlug: string;
     repository: string;
-  }
+  },
+  options: { rebuildAggregates?: boolean } = {}
 ) => {
   const hourly = await listCloudflareUsageHourlyRecords(env, params);
   const existing = await loadUsageDailyRollup(env, params);
@@ -615,10 +616,12 @@ export const mergeCloudflareHourlyIntoDaily = async (
   daily.cloudflareHours = hourly.map((record) => record.hour);
 
   await putKvWithRetry(env.DEPLOYMENTS_KV, usageKey(params), JSON.stringify(daily));
-  await rebuildUsageAggregatesForDate(env, {
-    date: params.date,
-    environment: params.environment
-  });
+  if (options.rebuildAggregates !== false) {
+    await rebuildUsageAggregatesForDate(env, {
+      date: params.date,
+      environment: params.environment
+    });
+  }
   return daily;
 };
 
@@ -628,6 +631,7 @@ const collectDeploymentMetrics = async (env: Env, deployment: DeploymentRecord, 
   start: Date;
   end: Date;
   syncedAt: Date;
+  enforceAggregateLimits?: boolean;
 }) => {
   const metrics = new Map<string, CollectorMetric>();
   if (deployment.targets.worker?.scriptName) {
@@ -720,7 +724,7 @@ const collectDeploymentMetrics = async (env: Env, deployment: DeploymentRecord, 
     orgSlug: record.orgSlug,
     repoSlug: record.repoSlug,
     repository: record.repository
-  });
+  }, { rebuildAggregates: false });
   if (isLimitExemptOrganization(env, deployment.orgSlug)) {
     await clearAppLimitState(env, {
       environment: deployment.environment,
@@ -739,25 +743,27 @@ const collectDeploymentMetrics = async (env: Env, deployment: DeploymentRecord, 
     warning.status === "exceeded" &&
     daily.metrics[warning.metric]?.source !== "cloudflare_estimated"
   );
-  for (const [metric, rollup] of Object.entries(daily.metrics)) {
-    if (rollup.source === "cloudflare_estimated") continue;
-    const scopedCheck = await checkUsageLimit(env, {
-      metric,
-      environment: deployment.environment,
-      orgSlug: deployment.orgSlug,
-      repoSlug: deployment.repoSlug,
-      units: 1,
-      at: params.syncedAt
-    });
-    if (!scopedCheck || scopedCheck.scope === "repo" || scopedCheck.status !== "exceeded") continue;
-    exceeded.push({
-      metric: scopedCheck.metric,
-      status: "exceeded",
-      used: scopedCheck.used,
-      limit: scopedCheck.limit,
-      remaining: scopedCheck.remaining,
-      message: `${scopedCheck.metric} exceeded the ${scopedCheck.scope} daily limit (${scopedCheck.used}/${scopedCheck.limit}).`
-    });
+  if (params.enforceAggregateLimits !== false) {
+    for (const [metric, rollup] of Object.entries(daily.metrics)) {
+      if (rollup.source === "cloudflare_estimated") continue;
+      const scopedCheck = await checkUsageLimit(env, {
+        metric,
+        environment: deployment.environment,
+        orgSlug: deployment.orgSlug,
+        repoSlug: deployment.repoSlug,
+        units: 1,
+        at: params.syncedAt
+      });
+      if (!scopedCheck || scopedCheck.scope === "repo" || scopedCheck.status !== "exceeded") continue;
+      exceeded.push({
+        metric: scopedCheck.metric,
+        status: "exceeded",
+        used: scopedCheck.used,
+        limit: scopedCheck.limit,
+        remaining: scopedCheck.remaining,
+        message: `${scopedCheck.metric} exceeded the ${scopedCheck.scope} daily limit (${scopedCheck.used}/${scopedCheck.limit}).`
+      });
+    }
   }
   if (exceeded.length > 0) {
     await suspendAppForLimits(env, {
@@ -776,6 +782,47 @@ const collectDeploymentMetrics = async (env: Env, deployment: DeploymentRecord, 
     });
   }
   return record;
+};
+
+const enforceAggregateUsageLimits = async (env: Env, deployment: DeploymentRecord, at: Date) => {
+  if (isLimitExemptOrganization(env, deployment.orgSlug)) return;
+  const daily = await loadUsageDailyRollup(env, {
+    date: usageDate(at),
+    environment: deployment.environment,
+    orgSlug: deployment.orgSlug,
+    repoSlug: deployment.repoSlug
+  });
+  if (!daily) return;
+  const exceeded = [];
+  for (const [metric, rollup] of Object.entries(daily.metrics)) {
+    if (rollup.source === "cloudflare_estimated") continue;
+    const scopedCheck = await checkUsageLimit(env, {
+      metric,
+      environment: deployment.environment,
+      orgSlug: deployment.orgSlug,
+      repoSlug: deployment.repoSlug,
+      units: 1,
+      at
+    });
+    if (!scopedCheck || scopedCheck.scope === "repo" || scopedCheck.status !== "exceeded") continue;
+    exceeded.push({
+      metric: scopedCheck.metric,
+      status: "exceeded" as const,
+      used: scopedCheck.used,
+      limit: scopedCheck.limit,
+      remaining: scopedCheck.remaining,
+      message: `${scopedCheck.metric} exceeded the ${scopedCheck.scope} daily limit (${scopedCheck.used}/${scopedCheck.limit}).`
+    });
+  }
+  if (exceeded.length === 0) return;
+  await suspendAppForLimits(env, {
+    environment: deployment.environment,
+    orgSlug: deployment.orgSlug,
+    repoSlug: deployment.repoSlug,
+    reason: `W7S free-tier limit exceeded for ${exceeded[0]?.metric}.`,
+    metrics: exceeded,
+    at
+  });
 };
 
 const failureMessage = (error: unknown) =>
@@ -838,7 +885,8 @@ export const collectHourlyCloudflareUsage = async (
         hour,
         start,
         end,
-        syncedAt: now
+        syncedAt: now,
+        enforceAggregateLimits: false
       })
     })
   );
@@ -847,13 +895,43 @@ export const collectHourlyCloudflareUsage = async (
     .filter((item): item is { entry: PromiseRejectedResult; deployment: DeploymentRecord } =>
       item.entry.status === "rejected" && Boolean(item.deployment)
     );
-  if (failures.length > 0) {
-    const details = failures.map(({ deployment, entry }) => usageFailureDetail(deployment, entry.reason));
-    console.warn(`W7S Cloudflare usage collection failed for ${failures.length} deployment(s): ${details.join("; ")}`);
+  const scopes = [...new Set(deployments.map((deployment) => deployment.environment))].map((environment) => ({
+    date: usageDate(start),
+    environment
+  }));
+  const aggregateSettled = await collectWithConcurrency(scopes, 1, (scope) =>
+    rebuildUsageAggregatesForDate(env, scope)
+  );
+  const aggregateFailures = aggregateSettled
+    .map((entry, index) => ({ entry, scope: scopes[index] }))
+    .filter((item): item is { entry: PromiseRejectedResult; scope: { date: string; environment: string } } =>
+      item.entry.status === "rejected" && Boolean(item.scope)
+    );
+  const aggregateLimitSettled = aggregateFailures.length > 0
+    ? []
+    : await collectWithConcurrency(deployments, COLLECTION_DEPLOYMENT_CONCURRENCY, (deployment) =>
+      enforceAggregateUsageLimits(env, deployment, now)
+    );
+  const aggregateLimitFailures = aggregateLimitSettled
+    .map((entry, index) => ({ entry, deployment: deployments[index] }))
+    .filter((item): item is { entry: PromiseRejectedResult; deployment: DeploymentRecord } =>
+      item.entry.status === "rejected" && Boolean(item.deployment)
+    );
+  const details = [
+    ...failures.map(({ deployment, entry }) => usageFailureDetail(deployment, entry.reason)),
+    ...aggregateFailures.map(({ scope, entry }) =>
+      `usage aggregates (${scope.environment}): ${failureMessage(entry.reason)}`
+    ),
+    ...aggregateLimitFailures.map(({ deployment, entry }) =>
+      `usage limit enforcement for ${usageFailureDetail(deployment, entry.reason)}`
+    )
+  ];
+  if (details.length > 0) {
+    console.warn(`W7S Cloudflare usage collection failed for ${details.length} operation(s): ${details.join("; ")}`);
     await notifyUsageCollectionFailures(env, {
       hour,
       deployments: deployments.length,
-      failures: failures.length,
+      failures: details.length,
       details
     });
   }
@@ -861,11 +939,23 @@ export const collectHourlyCloudflareUsage = async (
     collected: true,
     hour,
     deployments: deployments.length,
-    failures: failures.length,
-    failureDetails: failures.map(({ deployment, entry }) => ({
-      repository: deployment.repository,
-      environment: deployment.environment,
-      error: failureMessage(entry.reason)
-    }))
+    failures: details.length,
+    failureDetails: [
+      ...failures.map(({ deployment, entry }) => ({
+        repository: deployment.repository,
+        environment: deployment.environment,
+        error: failureMessage(entry.reason)
+      })),
+      ...aggregateFailures.map(({ scope, entry }) => ({
+        repository: "usage aggregates",
+        environment: scope.environment,
+        error: failureMessage(entry.reason)
+      })),
+      ...aggregateLimitFailures.map(({ deployment, entry }) => ({
+        repository: deployment.repository,
+        environment: deployment.environment,
+        error: `usage limit enforcement: ${failureMessage(entry.reason)}`
+      }))
+    ]
   };
 };

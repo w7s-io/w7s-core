@@ -279,7 +279,7 @@ The core cron runs once per minute for app schedules and also takes an hourly lo
 usage_cf_hourly:v1:<hour>:<environment>:<owner>:<repo>
 ```
 
-Then it merges those hourly records into the daily rollup. If any reliably attributed metric exceeds its effective daily limit, W7S stores:
+Then it merges those hourly records into the daily rollup. After all deployment records for each environment are merged, it rebuilds the owner and global aggregate rollups once, with aggregate KV writes serialized. This prevents concurrent deployments from writing the same aggregate key more than once per second. If any reliably attributed metric exceeds its effective daily limit, W7S stores:
 
 ```text
 app_limit_state:v1:<environment>:<owner>:<repo>

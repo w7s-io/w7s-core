@@ -1,5 +1,9 @@
 # W7S Core Agent Decisions
 
+## 2026-11-09: Hourly usage aggregate writes are consolidated
+
+The hourly Cloudflare collector writes per-app hourly and daily records during the fleet scan, then rebuilds owner and global daily aggregates once per environment after the scan. Aggregate writes are serialized and KV 429 retries wait at least one second before retrying. Workers KV limits writes to the same key to one per second, so this avoids repeated concurrent writes to shared aggregate keys while retaining an explicit alert if a collection or aggregate rebuild still fails.
+
 ## 2026-10-29: Retained diagnostics for unexpected deployment failures
 
 Unexpected deployment failures must return a structured 500 with a diagnostic ID, failed sub-operation, and an `x-w7s-diagnostic-id` header. W7S retains a bounded record in the deployments KV namespace for 30 days, and exposes it only to a GitHub token authorized for the recorded source repository. This gives deployers actionable incident evidence without retaining uploaded archives, bearer tokens, or secret binding values.

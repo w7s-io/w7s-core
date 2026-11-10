@@ -77,6 +77,8 @@ The Cloudflare account must already have Email Service sending enabled for the s
 
 ## Usage Limit Investigation
 
+If the hourly usage alert reports `KV PUT failed: 429 Too Many Requests`, retain the reported hour and failure details. The collector retries transient KV throttling after the one-write-per-key window, merges app rollups first, and serializes one aggregate rebuild per environment. Check the deployed release before manually rerunning or editing usage keys.
+
 GitHub Actions deploys `wrangler.generated.jsonc`, not the canonical Wrangler file. Before deploying an operator exemption change, confirm both the workflow environment and `scripts/prepare-cloudflare-config.mjs` carry `W7S_LIMIT_EXEMPT_ORGS` into the generated `vars` object.
 
 List current app suspension state:
