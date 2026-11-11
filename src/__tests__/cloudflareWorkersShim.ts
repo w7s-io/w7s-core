@@ -34,3 +34,6 @@ export class WorkflowEntrypoint<Env = unknown, Params = unknown> {
     throw new Error("WorkflowEntrypoint.run must be implemented by a subclass.");
   }
 }
+export class DurableObject<Env = unknown> {
+  constructor(protected ctx: DurableObjectState, protected env: Env) {}
+}

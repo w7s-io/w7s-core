@@ -28,7 +28,8 @@ describe("health endpoint", () => {
         commitId: "abc123",
         commitHash: "abc123",
         branch: "main",
-        deployedAt: "2026-05-23T19:31:42Z"
+        deployedAt: "2026-05-23T19:31:42Z",
+        usageStorage: "legacy-kv"
       });
     }
   });

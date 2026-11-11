@@ -34,6 +34,8 @@
 
 ## Cross-Repo Contract
 
+- Usage API totals combine legacy KV/provider history with live SQLite ledger deltas. Consumers must not infer current usage from raw KV keys. Log entries may include `occurrences` and `lastTimestamp` when identical messages repeat within one invocation; clients should display these fields instead of treating a stored row as exactly one emitted message.
+
 - App repos should return explicit 404s for obvious scanner paths instead of serving SPA shells.
 - W7S core still owns routing telemetry, usage accounting, and suspension enforcement for custom-domain traffic before or after app dispatch.
 - App repos can request path-based custom routes by putting entries such as `omattic.com/compress-video` in `CNAME`; W7S strips `/compress-video` before static or backend dispatch.

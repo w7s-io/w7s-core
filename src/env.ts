@@ -1,3 +1,5 @@
+import type { UsageLedger } from "./usageLedger";
+
 export type DispatchNamespace = {
   get: (
     name: string,
@@ -16,6 +18,7 @@ export type DispatchNamespace = {
 export interface Env {
   DISPATCHER?: DispatchNamespace;
   DEPLOYMENTS_KV: KVNamespace;
+  USAGE_LEDGER?: DurableObjectNamespace<UsageLedger>;
   STATIC_ASSETS?: R2Bucket;
   W7S_ANALYTICS?: AnalyticsEngineDataset;
   W7S_WORKFLOWS?: Workflow<W7SWorkflowPayload>;

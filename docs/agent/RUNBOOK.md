@@ -77,6 +77,14 @@ The Cloudflare account must already have Email Service sending enabled for the s
 
 ## Usage Limit Investigation
 
+Since the usage-ledger migration, raw `usage_daily:v1:*` KV values contain legacy/provider totals only. Use the authenticated usage API for the combined total, including live SQLite deltas. The `USAGE_LEDGER` binding and `usage-ledger-v1` SQLite class migration are present in both canonical and generated deployment configurations. Missing the production binding would restore the expensive legacy writer and hide existing deltas from quota reads.
+
+Ledger objects are sharded by environment and UTC date. An alarm expires their data after the configured usage retention period (14 days by default, bounded to 1-90 days), measured from the end of the event day. No per-event KV flush is required. The hourly collector continues its low-frequency KV writes for Cloudflare resource totals. Budget for Durable Object requests/storage/compute rather than assuming these operations are free.
+
+Rollback must preserve ledger reads until all retained deltas have expired or been explicitly reconciled into the legacy baseline. Do not remove the binding or deploy pre-ledger code as a blind rollback. Never persist a combined API rollup back to KV: that would count deltas twice.
+
+After deployment, verify `/health` metadata, the live binding, normal app requests and authenticated usage totals. Compare complete hourly/day KV write windows after the Inbox scan fix has settled. Logs can now expose `occurrences` and `lastTimestamp`; they are aggregate entries within one invocation, not missing warnings. The existing 100-record trace cap still applies.
+
 If the hourly usage alert reports `KV PUT failed: 429 Too Many Requests`, retain the reported hour and failure details. The collector retries transient KV throttling after the one-write-per-key window, merges app rollups first, and serializes one aggregate rebuild per environment. Check the deployed release before manually rerunning or editing usage keys.
 
 GitHub Actions deploys `wrangler.generated.jsonc`, not the canonical Wrangler file. Before deploying an operator exemption change, confirm both the workflow environment and `scripts/prepare-cloudflare-config.mjs` carry `W7S_LIMIT_EXEMPT_ORGS` into the generated `vars` object.

@@ -104,7 +104,7 @@ const normalizeMetric = (metric: string) => {
   return normalized;
 };
 
-export const loadUsageDailyRollup = async (env: Env, params: {
+export const loadLegacyUsageDailyRollup = async (env: Env, params: {
   date: string;
   environment: string;
   orgSlug: string;
@@ -116,6 +116,28 @@ export const loadUsageDailyRollup = async (env: Env, params: {
   if (record.version !== 1 || typeof record.date !== "string" || !record.metrics) return null;
   return record as UsageDailyRollup;
 };
+
+const ledgerFor = (env: Env, params: { date: string; environment: string }) =>
+  env.USAGE_LEDGER?.getByName(JSON.stringify([params.environment, params.date]));
+
+export const withUsageLedgerDelta = async (
+  env: Env,
+  params: { date: string; environment: string },
+  key: string,
+  legacy: UsageDailyRollup | null
+) => {
+  const delta = await ledgerFor(env, params)?.getRollup(key);
+  if (!delta) return legacy;
+  if (!legacy) return delta;
+  const combined = structuredClone(legacy);
+  for (const [metric, value] of Object.entries(delta.metrics)) mergeMetricRollup(combined.metrics, metric, value);
+  combined.updatedAt = delta.updatedAt > combined.updatedAt ? delta.updatedAt : combined.updatedAt;
+  return combined;
+};
+
+export const loadUsageDailyRollup = async (env: Env, params: {
+  date: string; environment: string; orgSlug: string; repoSlug: string;
+}) => withUsageLedgerDelta(env, params, usageKey(params), await loadLegacyUsageDailyRollup(env, params));
 
 const loadUsageRollupFromKey = async (env: Env, key: string) => {
   const raw = await env.DEPLOYMENTS_KV.get(key, "json");
@@ -129,12 +151,12 @@ export const loadUsageOwnerDailyRollup = async (env: Env, params: {
   date: string;
   environment: string;
   orgSlug: string;
-}) => loadUsageRollupFromKey(env, usageOwnerKey(params));
+}) => withUsageLedgerDelta(env, params, usageOwnerKey(params), await loadUsageRollupFromKey(env, usageOwnerKey(params)));
 
 export const loadUsageGlobalDailyRollup = async (env: Env, params: {
   date: string;
   environment: string;
-}) => loadUsageRollupFromKey(env, usageGlobalKey(params));
+}) => withUsageLedgerDelta(env, params, usageGlobalKey(params), await loadUsageRollupFromKey(env, usageGlobalKey(params)));
 
 const emptyUsageRollup = (params: {
   date: string;
@@ -315,7 +337,10 @@ export const recordUsageEvent = async (env: Env, event: UsageEvent) => {
       at
     };
 
-    await Promise.all([
+    const ledger = ledgerFor(env, { date, environment: event.environment });
+    if (ledger) {
+      if (!await ledger.record({ ...event, metric, at: at.toISOString(), count, units })) return;
+    } else await Promise.all([
       recordUsageAtKey(
         env,
         usageKey({

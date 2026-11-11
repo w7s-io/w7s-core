@@ -81,7 +81,8 @@ const health = (c: Context<{ Bindings: Env }>) =>
     commitId: c.env.APP_COMMIT_ID ?? null,
     commitHash: c.env.APP_COMMIT_ID ?? null,
     branch: c.env.APP_DEPLOY_BRANCH ?? null,
-    deployedAt: c.env.APP_DEPLOYED_AT ?? null
+    deployedAt: c.env.APP_DEPLOYED_AT ?? null,
+    usageStorage: c.env.USAGE_LEDGER ? "sqlite-ledger" : "legacy-kv"
   });
 
 app.get("/health", health);
@@ -149,3 +150,4 @@ export default {
   scheduled: handleScheduled,
   tail: handleTailEvents
 };
+export { UsageLedger } from "./usageLedger";

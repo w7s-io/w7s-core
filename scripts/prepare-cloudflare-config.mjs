@@ -169,6 +169,10 @@ const config = {
   main: "src/worker.ts",
   compatibility_date: compatibilityDate,
   workers_dev: true,
+  durable_objects: {
+    bindings: [{ name: "USAGE_LEDGER", class_name: "UsageLedger" }]
+  },
+  migrations: [{ tag: "usage-ledger-v1", new_sqlite_classes: ["UsageLedger"] }],
   triggers: {
     crons: [scheduleCron]
   },

@@ -18,6 +18,8 @@ export type AppLogRecord = {
   repository: string;
   scriptName: string;
   outcome: string;
+  occurrences?: number;
+  lastTimestamp?: string;
   level?: string;
   message?: unknown[];
   text?: string;
@@ -278,7 +280,18 @@ const recordsFromTrace = (trace: TailTrace, mapping: WorkerScriptMapping) => {
     });
   }
 
-  return records;
+  // Collapse exact repeats within one invocation only, preserving a count and
+  // time range. Never share deduplication state across tenants or invocations.
+  const unique = new Map<string, AppLogRecord>();
+  for (const record of records) {
+    const signature = JSON.stringify([record.kind, record.level, record.message, record.exception, record.text]);
+    const existing = unique.get(signature);
+    if (existing) {
+      existing.occurrences = (existing.occurrences ?? 1) + 1;
+      existing.lastTimestamp = record.timestamp;
+    } else unique.set(signature, record);
+  }
+  return [...unique.values()];
 };
 
 export const storeAppLogRecords = async (env: Env, records: AppLogRecord[]) => {
@@ -318,12 +331,13 @@ export const persistTailEvents = async (events: unknown[], env: Env) => {
   for (const group of grouped.values()) {
     const first = group[0];
     if (!first) continue;
+    const occurrences = group.reduce((total, record) => total + (record.occurrences ?? 1), 0);
     const blocked = await checkBlockedUsageLimit(env, {
       metric: "log.write",
       environment: first.environment,
       orgSlug: first.orgSlug,
       repoSlug: first.repoSlug,
-      units: group.length
+      units: occurrences
     });
     if (blocked) {
       console.warn(
@@ -339,8 +353,8 @@ export const persistTailEvents = async (events: unknown[], env: Env) => {
       orgSlug: first.orgSlug,
       repoSlug: first.repoSlug,
       outcome: "success",
-      count: group.length,
-      units: group.length
+      count: occurrences,
+      units: occurrences
     });
   }
 

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { app } from "../worker";
-import { handleTailEvents } from "../logs";
+import { handleTailEvents, listAppLogs } from "../logs";
+import { loadUsageDailyRollup } from "../usage";
 import { storeDeploymentRecord, type DeploymentRecord } from "../storage/deployments";
 import { createTestEnv } from "./mocks";
 import { usageLimitPolicyKey } from "../usageLimits";
@@ -27,6 +28,30 @@ const deployment = (overrides: Partial<DeploymentRecord> = {}): DeploymentRecord
 });
 
 describe("worker log retrieval", () => {
+  it("stores one record for repeated invocation warnings while counting all occurrences", async () => {
+    const env = createTestEnv({ W7S_LIMIT_EXEMPT_ORGS: "acme" });
+    await storeDeploymentRecord(env, deployment());
+    const at = Date.now();
+    const put = vi.spyOn(env.DEPLOYMENTS_KV, "put");
+    await handleTailEvents([{
+      scriptName: deployment().targets.worker!.scriptName,
+      eventTimestamp: at, outcome: "ok",
+      logs: Array.from({ length: 100 }, (_, i) => ({ timestamp: at + i, level: "warn", message: ["lookup failed"] }))
+    }], env);
+    expect(put.mock.calls.filter(([key]) => key.startsWith("app_log:"))).toHaveLength(1);
+    const params = { environment: "production", orgSlug: "acme", repoSlug: "app" };
+    const logs = await listAppLogs(env, { ...params, from: new Date(at - 1), to: new Date(at + 1000), limit: 50 });
+    expect(logs.records).toHaveLength(1);
+    expect(logs.records[0]).toMatchObject({ occurrences: 100, lastTimestamp: new Date(at + 99).toISOString() });
+    expect((await loadUsageDailyRollup(env, { ...params, date: new Date().toISOString().slice(0, 10) }))?.metrics["log.write"].count).toBe(100);
+    await handleTailEvents([{
+      scriptName: deployment().targets.worker!.scriptName,
+      eventTimestamp: at + 200, outcome: "ok",
+      logs: [{ timestamp: at + 200, level: "warn", message: ["lookup failed"] }]
+    }], env);
+    expect(put.mock.calls.filter(([key]) => key.startsWith("app_log:"))).toHaveLength(2);
+  });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });

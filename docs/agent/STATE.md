@@ -2,6 +2,10 @@
 
 ## Current Runtime State
 
+- 2026-11-11: `USAGE_LEDGER` stores new W7S usage increments in SQLite Durable Objects sharded by environment/day. App/owner/global updates are atomic and no longer write KV per event. Read paths combine legacy KV baselines with ledger deltas; the hourly collector must only persist legacy/provider totals, never the combined view. Without the binding, local/test environments retain the legacy writer.
+- Identical logs within a single invocation are stored once with `occurrences` and `lastTimestamp`; log quota units still count every retained occurrence. Deduplication never crosses tenant or invocation boundaries.
+- Verification: typecheck, 200 Node tests and 7 Workers-runtime tests pass, including legacy baseline reconciliation, zero KV writes per event, concurrent increments, retention and quota reads. Live deployment verification is required before treating this as active behavior.
+
 - W7S core routes deployed apps from default domains, repo-prefix paths, and custom domains.
 - Runtime usage is accounted through `runtime.request` and app suspension is enforced by W7S cost guards.
 - The hourly Cloudflare usage collector merges each app into its daily rollup, then rebuilds shared owner/global aggregates once per environment with serialized KV writes. This avoids Workers KV same-key 429s during fleet scans.

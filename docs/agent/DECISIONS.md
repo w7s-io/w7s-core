@@ -116,3 +116,9 @@ Rationale: W7S should support an Omattic-style root site that acts as the securi
 The ISO 27001, ISO 27018, and ISO 27701 readiness planning workspace lives under `docs/iso/` in `w7s-core`.
 
 Rationale: the plan is directly about hosted W7S core platform compliance and should live in the primary platform repository.
+
+## 2026-11-11 Durable usage deltas and invocation log deduplication
+
+Move new usage increments from three read-modify-write KV operations to one RPC that transactionally updates app, owner and global daily rollups in an environment/day SQLite Durable Object. Preserve KV as the pre-cutover baseline and hourly provider snapshot store. Combine the two only on reads so collector rebuilds cannot replay live increments. This improves increment consistency but does not make the separate quota-check and subsequent event recording an atomic reservation protocol; billing delivery semantics are unchanged.
+
+Deduplicate only exact normalized log records from the same invocation. Preserve occurrence counts for quota accounting and a last-occurrence timestamp for diagnosis. Keep distinct messages and separate invocations independently observable.

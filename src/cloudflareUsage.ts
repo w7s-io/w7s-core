@@ -6,6 +6,8 @@ import { sanitizeScriptPart } from "./names";
 import { notifyUsageCollectionFailures } from "./notifications";
 import {
   loadUsageDailyRollup,
+  loadLegacyUsageDailyRollup,
+  withUsageLedgerDelta,
   rebuildUsageAggregatesForDate,
   usageDate,
   usageKey,
@@ -568,7 +570,7 @@ export const mergeCloudflareHourlyIntoDaily = async (
   options: { rebuildAggregates?: boolean } = {}
 ) => {
   const hourly = await listCloudflareUsageHourlyRecords(env, params);
-  const existing = await loadUsageDailyRollup(env, params);
+  const existing = await loadLegacyUsageDailyRollup(env, params);
   const now = new Date().toISOString();
   const daily: UsageDailyRollup = existing ?? {
     version: 1,
@@ -622,7 +624,7 @@ export const mergeCloudflareHourlyIntoDaily = async (
       environment: params.environment
     });
   }
-  return daily;
+  return (await withUsageLedgerDelta(env, params, usageKey(params), daily))!;
 };
 
 const collectDeploymentMetrics = async (env: Env, deployment: DeploymentRecord, params: {
