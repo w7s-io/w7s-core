@@ -2,6 +2,8 @@
 
 ## Current Runtime State
 
+- 2026-11-13 17:58 UTC: runtime `aefbeda` verified through `/health`; Be Fluent Kids apex/www HTTP and HTTPS serve revision 3 and PNG with exact SHA-256 matches. Provider fallback origin `saas-origin.w7s.cloud` is active, with proxied AAAA `100::` and SaaS zone route `*/*` to `w7s-io`. The metadata and certificate fixes below passed live acceptance without changing customer DNS or nameservers.
+
 - 2026-11-13: external-domain provisioning no longer submits unused Cloudflare Custom Metadata. A regression test simulates an account rejecting that field and verifies the W7S mapping persists. Live Be Fluent Kids acceptance must be checked after deploying this fix.
 - CNAME-first certificate issuance uses HTTP DCV. Redeploying a hostname with a non-active TXT certificate switches its issuance method to HTTP; active certificates remain unchanged.
 
