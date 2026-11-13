@@ -395,12 +395,7 @@ const provisionCloudflareForSaasHostname = async (params: {
           method: "txt",
           type: "dv"
         },
-        ...(customOriginServer ? { custom_origin_server: customOriginServer } : {}),
-        custom_metadata: {
-          w7s_repository: params.repository ?? repoTxtValue(params.orgSlug, params.repoSlug),
-          w7s_environment: params.environment ?? "production",
-          w7s_path_prefix: params.route.pathPrefix
-        }
+        ...(customOriginServer ? { custom_origin_server: customOriginServer } : {})
       }
     );
     const createdRecord = asRecord(created);

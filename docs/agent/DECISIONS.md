@@ -1,5 +1,9 @@
 # W7S Core Agent Decisions
 
+## 2026-11-13: SaaS provisioning does not require Custom Metadata
+
+Omit `custom_metadata` from Custom Hostname creation. Cloudflare gates that optional feature behind an account entitlement; including it blocked external-domain deployment for Be Fluent Kids. W7S stores repository, environment, and path routing in its own domain mappings and does not consume `request.cf.hostMetadata`. Existing hostname reuse, certificate validation, ownership checks, and optional custom origins remain unchanged.
+
 ## 2026-11-09: Hourly usage aggregate writes are consolidated
 
 The hourly Cloudflare collector writes per-app hourly and daily records during the fleet scan, then rebuilds owner and global daily aggregates once per environment after the scan. Aggregate writes are serialized and KV 429 retries wait at least one second before retrying. Workers KV limits writes to the same key to one per second, so this avoids repeated concurrent writes to shared aggregate keys while retaining an explicit alert if a collection or aggregate rebuild still fails.

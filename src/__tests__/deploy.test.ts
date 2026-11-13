@@ -572,7 +572,7 @@ describe("deploy API", () => {
     expect(mapping?.repoSlug).toBe("whereis");
   });
 
-  it("provisions Cloudflare for SaaS custom hostnames when the customer zone is external", async () => {
+  it("provisions external SaaS hostnames without a Custom Metadata entitlement", async () => {
     const createdHostnames: Array<Record<string, unknown>> = [];
     const workerRouteRequests: string[] = [];
     vi.stubGlobal(
@@ -594,6 +594,12 @@ describe("deploy API", () => {
         if (url.endsWith("/custom_hostnames") && init?.method === "POST") {
           const body = JSON.parse(String(init.body)) as Record<string, unknown>;
           createdHostnames.push(body);
+          if ("custom_metadata" in body) {
+            return Response.json({
+              success: false,
+              errors: [{ message: "No custom metadata access has been allocated for this zone or account." }]
+            }, { status: 403 });
+          }
           return Response.json({
             success: true,
             result: {
@@ -685,6 +691,7 @@ describe("deploy API", () => {
       })
     ]);
     expect(workerRouteRequests).toEqual([]);
+    expect(createdHostnames[0]).not.toHaveProperty("custom_metadata");
     const mapping = await loadCustomDomainMapping(env, "www.tripolarisbarcelona.com");
     expect(mapping?.repository).toBe("omattic/tripolarisbarcelona");
   });
