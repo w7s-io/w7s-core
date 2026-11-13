@@ -17,6 +17,8 @@ npm run check
 
 If local OAuth cannot read the SaaS configuration, run `gh workflow run saas-diagnostic.yml -f hostname=example.com`. This read-only workflow uses the existing CI API token and reports the fallback origin plus hostname/certificate status without exposing credentials.
 
+To repair a missing provider origin after authorization, add `-f ensure_origin=true`. The workflow creates proxied `saas-origin.w7s.cloud AAAA 100::`, attaches the zone-level `*/*` route to `w7s-io`, and sets that fallback origin. Existing specific routes retain precedence; conflicting origin DNS, fallback origins, or catch-all routes cause a failure instead of being overwritten. The default workflow remains read-only.
+
 New hostnames use HTTP certificate validation, allowing Cloudflare to serve validation challenges after DNS points to the SaaS target. Redeploy to migrate a non-active TXT certificate created by older W7S versions to HTTP validation. Active certificates are not modified. Confirm hostname and SSL status are active and test the customer URL with TLS verification; a successful deploy alone does not prove readiness.
 
 Configure these GitHub variables for the hosted W7S deploy when customer domains should remain on external DNS providers:
