@@ -15,6 +15,8 @@ npm run check
 
 ## Cloudflare for SaaS Custom Domains
 
+If local OAuth cannot read the SaaS configuration, run `gh workflow run saas-diagnostic.yml -f hostname=example.com`. This read-only workflow uses the existing CI API token and reports the fallback origin plus hostname/certificate status without exposing credentials.
+
 New hostnames use HTTP certificate validation, allowing Cloudflare to serve validation challenges after DNS points to the SaaS target. Redeploy to migrate a non-active TXT certificate created by older W7S versions to HTTP validation. Active certificates are not modified. Confirm hostname and SSL status are active and test the customer URL with TLS verification; a successful deploy alone does not prove readiness.
 
 Configure these GitHub variables for the hosted W7S deploy when customer domains should remain on external DNS providers:

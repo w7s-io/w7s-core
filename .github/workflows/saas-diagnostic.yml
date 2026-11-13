@@ -1,0 +1,23 @@
+name: Diagnose SaaS hostname
+on:
+  workflow_dispatch:
+    inputs:
+      hostname:
+        description: Customer hostname to inspect
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/diagnose-saas.mjs
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          W7S_ZONE_NAME: ${{ vars.W7S_ZONE_NAME || 'w7s.cloud' }}
+          HOSTNAME: ${{ inputs.hostname }}
