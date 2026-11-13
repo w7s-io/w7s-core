@@ -381,6 +381,19 @@ const provisionCloudflareForSaasHostname = async (params: {
 
     const existing = await listCustomHostname(params.env, params.route.hostname);
     if (existing) {
+      const record = asRecord(existing);
+      const ssl = asRecord(record?.ssl);
+      const id = stringValue(record?.id);
+      // Migrate unfinished W7S TXT issuance to CNAME-based HTTP validation.
+      if (id && ssl?.method === "txt" && ssl.status !== "active") {
+        const updated = await cfRequest(
+          params.env,
+          "PATCH",
+          `/zones/${encodeURIComponent(zoneId)}/custom_hostnames/${encodeURIComponent(id)}`,
+          { ssl: { method: "http", type: "dv" } }
+        );
+        return readCustomHostnameProvisioning(params.env, params.route, updated);
+      }
       return readCustomHostnameProvisioning(params.env, params.route, existing);
     }
 
@@ -392,7 +405,7 @@ const provisionCloudflareForSaasHostname = async (params: {
       {
         hostname: params.route.hostname,
         ssl: {
-          method: "txt",
+          method: "http",
           type: "dv"
         },
         ...(customOriginServer ? { custom_origin_server: customOriginServer } : {})

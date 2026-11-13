@@ -572,8 +572,9 @@ describe("deploy API", () => {
     expect(mapping?.repoSlug).toBe("whereis");
   });
 
-  it("provisions external SaaS hostnames without a Custom Metadata entitlement", async () => {
+  it.each(["new", "pending-txt", "active-txt"])("provisions %s external SaaS hostnames without a Custom Metadata entitlement", async (state) => {
     const createdHostnames: Array<Record<string, unknown>> = [];
+    const patchedHostnames: Array<Record<string, unknown>> = [];
     const workerRouteRequests: string[] = [];
     vi.stubGlobal(
       "fetch",
@@ -589,7 +590,12 @@ describe("deploy API", () => {
           });
         }
         if (url.includes("/custom_hostnames?hostname=www.tripolarisbarcelona.com")) {
-          return Response.json({ success: true, result: [] });
+          return Response.json({ success: true, result: state === "new" ? [] : [{
+            id: "custom-hostname-1",
+            hostname: "www.tripolarisbarcelona.com",
+            status: "active",
+            ssl: { method: "txt", status: state === "active-txt" ? "active" : "pending_validation" }
+          }] });
         }
         if (url.endsWith("/custom_hostnames") && init?.method === "POST") {
           const body = JSON.parse(String(init.body)) as Record<string, unknown>;
@@ -619,6 +625,7 @@ describe("deploy API", () => {
           });
         }
         if (url.endsWith("/custom_hostnames/custom-hostname-1")) {
+          if (init?.method === "PATCH") patchedHostnames.push(JSON.parse(String(init.body)));
           return Response.json({
             success: true,
             result: {
@@ -674,24 +681,27 @@ describe("deploy API", () => {
       expect.objectContaining({
         provider: "cloudflare_for_saas",
         dnsTarget: "customers.w7s.cloud",
-        sslStatus: "pending_validation"
+        sslStatus: state === "active-txt" ? "active" : "pending_validation"
       })
     ]);
     expect(body.data?.customDomainWarnings).toEqual([
       expect.objectContaining({
         provider: "cloudflare_for_saas",
         dnsTarget: "customers.w7s.cloud",
-        sslStatus: "pending_validation"
+        sslStatus: state === "active-txt" ? "active" : "pending_validation"
       })
     ]);
-    expect(createdHostnames).toEqual([
+    expect(createdHostnames).toEqual(state === "new" ? [
       expect.objectContaining({
         hostname: "www.tripolarisbarcelona.com",
-        ssl: { method: "txt", type: "dv" }
+        ssl: { method: "http", type: "dv" }
       })
-    ]);
+    ] : []);
+    expect(patchedHostnames).toEqual(state === "pending-txt" ? [{ ssl: { method: "http", type: "dv" } }] : []);
     expect(workerRouteRequests).toEqual([]);
-    expect(createdHostnames[0]).not.toHaveProperty("custom_metadata");
+    for (const request of [...createdHostnames, ...patchedHostnames]) {
+      expect(request).not.toHaveProperty("custom_metadata");
+    }
     const mapping = await loadCustomDomainMapping(env, "www.tripolarisbarcelona.com");
     expect(mapping?.repository).toBe("omattic/tripolarisbarcelona");
   });

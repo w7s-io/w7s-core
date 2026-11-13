@@ -3,6 +3,7 @@
 ## Current Runtime State
 
 - 2026-11-13: external-domain provisioning no longer submits unused Cloudflare Custom Metadata. A regression test simulates an account rejecting that field and verifies the W7S mapping persists. Live Be Fluent Kids acceptance must be checked after deploying this fix.
+- CNAME-first certificate issuance uses HTTP DCV. Redeploying a hostname with a non-active TXT certificate switches its issuance method to HTTP; active certificates remain unchanged.
 
 - 2026-11-11: `USAGE_LEDGER` stores new W7S usage increments in SQLite Durable Objects sharded by environment/day. App/owner/global updates are atomic and no longer write KV per event. Read paths combine legacy KV baselines with ledger deltas; the hourly collector must only persist legacy/provider totals, never the combined view. Without the binding, local/test environments retain the legacy writer.
 - Identical logs within a single invocation are stored once with `occurrences` and `lastTimestamp`; log quota units still count every retained occurrence. Deduplication never crosses tenant or invocation boundaries.
